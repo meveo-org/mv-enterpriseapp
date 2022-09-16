@@ -1,0 +1,19 @@
+{
+    "storages": ["SQL"],
+    "default": "JavaEnterpriseApp",
+    "$schema": "http://json-schema.org/draft-07/schema",
+    "id": "JavaEnterpriseApp",
+    "title": "JavaEnterpriseApp",
+    "type": "object",
+    "properties": {"code": {
+        "storages": ["SQL"],
+        "nullable": true,
+        "description": "code",
+        "readOnly": false,
+        "versionable": false,
+        "id": "CE_JavaEnterpriseApp_code",
+        "title": "JavaEnterpriseApp.code",
+        "type": "string",
+        "maxLength": 255
+    }}
+}

@@ -1,0 +1,22 @@
+{
+  "code" : "org.meveo.enterpriseapp.GenerateJavaEnterpriseApplication",
+  "description" : "GenerateJavaEnterpriseApplication",
+  "inputs" : [ {
+    "name" : "moduleCode",
+    "type" : "String"
+  } ],
+  "outputs" : [ {
+    "name" : "moduleCode",
+    "type" : "String"
+  }, {
+    "name" : "defaultRepository",
+    "type" : "Repository"
+  } ],
+  "generateOutputs" : false,
+  "type" : "JAVA",
+  "transactionType" : "SAME",
+  "executionRoles" : [ ],
+  "sourcingRoles" : [ ],
+  "mavenDependencies" : [ ],
+  "importScriptInstances" : [ ]
+}

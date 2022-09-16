@@ -1,0 +1,10 @@
+{
+  "code" : "mv-enterpriseapp",
+  "description" : "mv-enterpriseapp",
+  "license" : "GPL",
+  "currentVersion" : "0.1",
+  "isInDraft" : true,
+  "autoCommit" : true,
+  "moduleDependencies" : [ ],
+  "moduleFiles" : [ ]
+}

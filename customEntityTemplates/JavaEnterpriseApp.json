@@ -1,0 +1,12 @@
+{
+  "code" : "JavaEnterpriseApp",
+  "name" : "JavaEnterpriseApp",
+  "description" : "JavaEnterpriseApp",
+  "customEntityCategoryCode" : "Generations",
+  "availableStorages" : [ "SQL" ],
+  "sqlStorageConfiguration" : {
+    "storeAsTable" : true
+  },
+  "samples" : [ ],
+  "audited" : false
+}
