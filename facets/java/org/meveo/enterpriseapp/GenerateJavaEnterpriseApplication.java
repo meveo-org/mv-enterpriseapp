@@ -181,14 +181,15 @@ public class GenerateJavaEnterpriseApplication extends Script {
 		} else {
 			gitClient.pull(enterpriseappTemplateRepo, "", "");
 		}
-		File enterpriseappTemplateDirectory = GitHelper.getRepositoryDir(user, JAVAENTERPRISE_APP_TEMPLATE);
+		GitRepository enterpriseapprepo = gitRepositoryService.findByCode(JAVAENTERPRISE_APP_TEMPLATE);
+		File enterpriseappTemplateDirectory = GitHelper.getRepositoryDir(user, enterpriseapprepo);
 		Path enterpriseAppTemplatePath = enterpriseappTemplateDirectory.toPath();
 		log.debug("webappTemplate path: {}", enterpriseAppTemplatePath.toString());
 
 		/// Generate module
 		GitRepository moduleEnterpriseAppRepo = gitRepositoryService.findByCode(moduleCode);
 		gitClient.checkout(moduleEnterpriseAppRepo, MEVEO_BRANCH, true);
-		File moduleEnterpriseAppDirectory = GitHelper.getRepositoryDir(user, moduleCode);
+		File moduleEnterpriseAppDirectory = GitHelper.getRepositoryDir(user, moduleEnterpriseAppRepo);
 		Path moduleEnterpriseAppPath = moduleEnterpriseAppDirectory.toPath();
 
 		List<File> filesToCommit = new ArrayList<>();
@@ -567,10 +568,7 @@ public class GenerateJavaEnterpriseApplication extends Script {
 			@SuppressWarnings("rawtypes")
 			Class clazz = Class.forName(modelClass);
 			String interfacename = Arrays.toString(clazz.getInterfaces());
-			interfacename = interfacename.replaceAll("[^a-zA-Z0-9.]", " "); 
-			interfacename=interfacename.substring(interfacename.lastIndexOf(".") + 1);
-			interfacename=interfacename.trim();
-			if (interfacename.equals(implementedIninterface))
+			if (interfacename.contains(implementedIninterface))
 				isImplemented=true;
 	
 		} catch (Exception e) {
