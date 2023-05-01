@@ -181,8 +181,7 @@ public class GenerateJavaEnterpriseApplication extends Script {
 		} else {
 			gitClient.pull(enterpriseappTemplateRepo, "", "");
 		}
-		GitRepository enterpriseapprepo = gitRepositoryService.findByCode(JAVAENTERPRISE_APP_TEMPLATE);
-		File enterpriseappTemplateDirectory = GitHelper.getRepositoryDir(user, enterpriseapprepo);
+		File enterpriseappTemplateDirectory = GitHelper.getRepositoryDir(user, enterpriseappTemplateRepo);
 		Path enterpriseAppTemplatePath = enterpriseappTemplateDirectory.toPath();
 		log.debug("webappTemplate path: {}", enterpriseAppTemplatePath.toString());
 
