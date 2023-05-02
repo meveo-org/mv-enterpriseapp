@@ -26,7 +26,7 @@ import org.meveo.model.customEntities.JavaEnterpriseApp;
 import org.meveo.model.git.GitRepository;
 import org.meveo.model.module.MeveoModule;
 import org.meveo.model.module.MeveoModuleItem;
-import org.meveo.model.scripts.FunctionIO;
+import org.meveo.model.scripts.Accessor;
 import org.meveo.model.scripts.ScriptInstance;
 import org.meveo.model.storage.Repository;
 import org.meveo.model.technicalservice.endpoint.Endpoint;
@@ -42,6 +42,8 @@ import org.meveo.service.script.Script;
 import org.meveo.service.script.ScriptInstanceService;
 import org.meveo.service.storage.RepositoryService;
 import org.meveo.service.technicalservice.endpoint.EndpointService;
+import org.meveo.model.CustomEntity;
+import org.meveo.model.customEntities.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -100,7 +102,11 @@ public class GenerateJavaEnterpriseApplication extends Script {
 	
 	private static final String CUSTOME_ENDPOINT_BASE_RESOURCE = "CustomEndpointResource";
 	
+	private static final String CUSTOM_SCRIPT_TEMPLATE = ScriptInstance.class.getName();
+	
 	private static final String CUSTOME_ENDPOINT_BASE_RESOURCE_PACKAGE = "org.meveo.base.CustomEndpointResource";
+	
+	private static final String customEntityPackage = "org.meveo.model.customEntities";
 	
 	private ParamBeanFactory paramBeanFactory = getCDIBean(ParamBeanFactory.class);
 
@@ -192,6 +198,8 @@ public class GenerateJavaEnterpriseApplication extends Script {
 		Path moduleEnterpriseAppPath = moduleEnterpriseAppDirectory.toPath();
 
 		List<File> filesToCommit = new ArrayList<>();
+		
+		//***************RestConfiguration file  Generation************************
 
 		String pathJavaRestConfigurationFile = "facets/java/org/meveo/" + moduleCode + "/rest/"
 				+ capitalize(moduleCode) + "RestConfig" + ".java";
@@ -206,6 +214,32 @@ public class GenerateJavaEnterpriseApplication extends Script {
 			throw new BusinessException("Failed creating file." + e.getMessage());
 		}
 		
+      // *****************Identity Entity*********************************
+		
+		List<String> scriptCodes = moduleItems.stream()
+				.filter(item -> CUSTOM_SCRIPT_TEMPLATE.equals(item.getItemClass()))
+				.map(entity -> entity.getItemCode()).collect(Collectors.toList());
+		
+		List<String> scriptEntityClasses = getEntityClassesByScriptCode(scriptCodes);
+		List<String> dtoClasses = new ArrayList<>();
+     // ***********************Dto generation**********************************************
+	
+		for (String scriptEntityClass : scriptEntityClasses) {
+			String endPointDtoClass = scriptEntityClass + "Dto";
+			String pathJavaDtoFile = "facets/java/org/meveo/" + moduleCode + "/dto/" + endPointDtoClass + ".java";
+			try {
+				File dtofile = new File(moduleEnterpriseAppDirectory, pathJavaDtoFile);
+				String dtocontent = generateDto(scriptEntityClass, endPointDtoClass, moduleCode);
+				FileUtils.write(dtofile, dtocontent, StandardCharsets.UTF_8);
+				filesToCommit.add(dtofile);
+				dtoClasses.add(endPointDtoClass);
+			} catch (IOException e) {
+				throw new BusinessException("Failed creating file." + e.getMessage());
+			}
+		}
+
+		// -----Identity entity,  EndPoint Generation--------------------
+					
 		List<String> endpointCodes = moduleItems.stream()
 				.filter(item -> CUSTOM_ENDPOINT_TEMPLATE.equals(item.getItemClass()))
 				.map(entity -> entity.getItemCode()).collect(Collectors.toList());
@@ -215,14 +249,11 @@ public class GenerateJavaEnterpriseApplication extends Script {
 		 
 		for (String endpointCode : endpointCodes) {
 			Endpoint endpoint = endpointService.findByCode(endpointCode);
-			ScriptInstance scriptInstance = scriptInstanceService.findByCode(endpoint.getService().getCode());
-			List<FunctionIO> inputList = scriptInstance.getInputs();
-			 for(FunctionIO input:inputList) {
-					if( isImplementedByCustomEntity(input.getType())) {
-						 endPointEntityClass =input.getType();
-					}
-			 }
-			
+			List<String> entityClasse= getEntityClassesByScriptCode(Arrays.asList(endpoint.getService().getCode()));
+			if(entityClasse != null) {
+				endPointEntityClass = entityClasse.get(0);	
+				endPointDtoClass=endPointEntityClass+"Dto";
+			}			
 			 if (endPointEntityClass!=null ) {
 			 endPointDtoClass=endPointEntityClass + "Dto"; 
 				String pathJavaDtoFile = "facets/java/org/meveo/" + moduleCode + "/dto/" + endPointDtoClass + ".java";
@@ -258,6 +289,38 @@ public class GenerateJavaEnterpriseApplication extends Script {
 
 		}
 		log.debug("------ GenerateJavaEnterpriseApplication.execute()--------------");
+	}
+	
+	List<String> getEntityClassesByScriptCode(List<String> scriptCodes)throws BusinessException  {
+		List<String> scriptEntityClasses = new ArrayList<>();
+		List<String> entityTypes = new ArrayList<>();
+		for (String scriptCode : scriptCodes) {
+			ScriptInstance scriptInstance = scriptInstanceService.findByCode(scriptCode);
+			List<Accessor> scriptSetters = scriptInstance.getSetters();
+			List<String> entityType = scriptSetters.stream().map(p -> p.getType()).collect(Collectors.toList());
+			entityType.remove("String");
+			if (!entityType.isEmpty())
+			entityTypes.addAll(entityType);
+
+		}
+		
+		if(entityTypes.isEmpty()) {
+			return null;
+		}
+		try {
+			for (String entityType : entityTypes) {
+				Class entityClass = Class.forName(customEntityPackage + "." + entityType);
+				if (!entityClass.isPrimitive() && CustomEntity.class.isAssignableFrom(entityClass)) {
+					scriptEntityClasses.add(entityType);
+				}
+
+			}
+
+		} catch (Exception e) {
+			throw new BusinessException("Entity Class not found." + e.getMessage());
+		}
+
+		return scriptEntityClasses;
 	}
 
 	/*
