@@ -248,6 +248,8 @@ public class GenerateJavaEnterpriseApplication extends Script {
 		 String endPointDtoClass=null; 
 		 
 		for (String endpointCode : endpointCodes) {
+			endPointEntityClass=null; 
+		    endPointDtoClass=null; 
 			Endpoint endpoint = endpointService.findByCode(endpointCode);
 			List<String> entityClasse= getEntityClassesByScriptCode(Arrays.asList(endpoint.getService().getCode()));
 			if(entityClasse != null) {
@@ -281,11 +283,11 @@ public class GenerateJavaEnterpriseApplication extends Script {
 		List<File> templatefiles = templateFileCopy(enterpriseAppTemplatePath, moduleEnterpriseAppPath);
 		filesToCommit.addAll(templatefiles);
 
+			}
+			
 		if (!filesToCommit.isEmpty()) {
 			gitClient.commitFiles(moduleEnterpriseAppRepo, filesToCommit, "DTO & Endpoint generation.");
 		}
-
-			}
 
 		}
 		log.debug("------ GenerateJavaEnterpriseApplication.execute()--------------");
