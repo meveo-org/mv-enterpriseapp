@@ -223,7 +223,7 @@ public class GenerateJavaEnterpriseApplication extends Script {
 		List<String> scriptEntityClasses = getEntityClassesByScriptCode(scriptCodes);
 		List<String> dtoClasses = new ArrayList<>();
      // ***********************Dto generation**********************************************
-	
+		if(scriptEntityClasses != null) {
 		for (String scriptEntityClass : scriptEntityClasses) {
 			String endPointDtoClass = scriptEntityClass + "Dto";
 			String pathJavaDtoFile = "facets/java/org/meveo/" + moduleCode + "/dto/" + endPointDtoClass + ".java";
@@ -237,7 +237,7 @@ public class GenerateJavaEnterpriseApplication extends Script {
 				throw new BusinessException("Failed creating file." + e.getMessage());
 			}
 		}
-
+		}
 		// -----Identity entity,  EndPoint Generation--------------------
 					
 		List<String> endpointCodes = moduleItems.stream()
@@ -305,7 +305,7 @@ public class GenerateJavaEnterpriseApplication extends Script {
 			entityTypes.addAll(entityType);
 
 		}
-		
+		entityTypes.removeAll(Arrays.asList("String"));
 		if(entityTypes.isEmpty()) {
 			return null;
 		}
