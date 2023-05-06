@@ -14,6 +14,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import javax.inject.Inject;
+import javax.ws.rs.PathParam;
 
 import org.apache.commons.io.FileUtils;
 import org.meveo.persistence.CrossStorageService;
@@ -30,6 +31,7 @@ import org.meveo.model.scripts.Accessor;
 import org.meveo.model.scripts.ScriptInstance;
 import org.meveo.model.storage.Repository;
 import org.meveo.model.technicalservice.endpoint.Endpoint;
+import org.meveo.model.technicalservice.endpoint.EndpointPathParameter;
 import org.meveo.service.admin.impl.MeveoModuleService;
 import org.meveo.service.crm.impl.CustomFieldInstanceService;
 import org.meveo.service.crm.impl.CustomFieldTemplateService;
@@ -407,7 +409,6 @@ public class GenerateJavaEnterpriseApplication extends Script {
 	 * Generate EndPoint 
 	 */
 	  public String generateEndPoint(Endpoint endPoint,String endPointEntityClass,String endPointDtoClass,String moduleCode) {
-		  
 	    String endPointCode        = endPoint.getCode();
 	    String httpMethod          = endPoint.getMethod().getLabel();
 	    String serviceCode         = getServiceCode(endPoint.getService().getCode());
@@ -424,14 +425,18 @@ public class GenerateJavaEnterpriseApplication extends Script {
 		cu.getImports().add(new ImportDeclaration(new Name("org.meveo.admin.exception.BusinessException"), false, false));
 		cu.getImports().add(new ImportDeclaration(new Name(CUSTOME_ENDPOINT_BASE_RESOURCE_PACKAGE), false, false));
 		if (httpMethod.equalsIgnoreCase("POST") || httpMethod.equalsIgnoreCase("PUT")) {
-			StringBuilder endpointDtoclasspackage=new StringBuilder("org.meveo.").append(moduleCode).append(".dto."+endPointDtoClass);
-			cu.getImports().add(new ImportDeclaration(new Name(endpointDtoclasspackage.toString()), false, false));
+			
+			if(endPointDtoClass != null) {
+				StringBuilder endpointDtoclasspackage=new StringBuilder("org.meveo.").append(moduleCode).append(".dto."+endPointDtoClass);
+				cu.getImports().add(new ImportDeclaration(new Name(endpointDtoclasspackage.toString()), false, false));
+			}
+						
 		}
 		cu.getImports().add(new ImportDeclaration(new Name(endPoint.getService().getCode()), false, false));
 		
 		String injectedFieldName=getNonCapitalizeNameWithPrefix(serviceCode);
 		ClassOrInterfaceDeclaration clazz = generateRestClass(cu,endPointCode,httpMethod,endPoint.getBasePath(),serviceCode,injectedFieldName);
-		MethodDeclaration restMethod = generateRestMethod(clazz,httpMethod,endPoint.getPath(),endPointDtoClass,endPoint.getContentType());
+		MethodDeclaration restMethod = generateRestMethod(endPoint,clazz,httpMethod,endPoint.getPath(),endPointDtoClass,endPoint.getContentType());
 
 		BlockStmt beforeTryblock = new BlockStmt();
 
@@ -447,30 +452,46 @@ public class GenerateJavaEnterpriseApplication extends Script {
 		beforeTryblock.addStatement(new ExpressionStmt(new NameExpr("parameterMap = new HashMap<String, Object>()")));
 
 		if (httpMethod.equalsIgnoreCase("POST") || httpMethod.equalsIgnoreCase("PUT")) {
-			MethodCallExpr getEntity_methodCall = new MethodCallExpr(new NameExpr("parameterMap"), "put");
-			getEntity_methodCall.addArgument(new StringLiteralExpr(getNonCapitalizeName(endPointEntityClass)));
-			getEntity_methodCall.addArgument(new MethodCallExpr(new NameExpr(getNonCapitalizeName(endPointDtoClass)), "get" + endPointEntityClass));
+		// parameterMap.put("product", productDto.getProduct());        parameterMap.put("type", productDto.getType());
+		       	
+		   if(endPointDtoClass != null) {
+			    MethodCallExpr getEntity_methodCall = new MethodCallExpr(new NameExpr("parameterMap"), "put");
+				getEntity_methodCall.addArgument(new StringLiteralExpr(getNonCapitalizeName(endPointEntityClass)));
+				getEntity_methodCall.addArgument(new MethodCallExpr(new NameExpr(getNonCapitalizeName(endPointDtoClass)), "get" + endPointEntityClass));
 
-			beforeTryblock.addStatement(getEntity_methodCall);
+				beforeTryblock.addStatement(getEntity_methodCall);
 
-			MethodCallExpr getType_methodCall = new MethodCallExpr(new NameExpr("parameterMap"), "put");
-			getType_methodCall.addArgument(new StringLiteralExpr("type"));
-			getType_methodCall.addArgument(new MethodCallExpr(new NameExpr(getNonCapitalizeName(endPointDtoClass)), "getType"));
+				MethodCallExpr getType_methodCall = new MethodCallExpr(new NameExpr("parameterMap"), "put");
+				getType_methodCall.addArgument(new StringLiteralExpr("type"));
+				getType_methodCall.addArgument(new MethodCallExpr(new NameExpr(getNonCapitalizeName(endPointDtoClass)), "getType"));
 
-			beforeTryblock.addStatement(getType_methodCall);
-			
+				beforeTryblock.addStatement(getType_methodCall);				
+			   
+		   }
+		   //parameterMap.put("uuid", "uuid");
+		   for(EndpointPathParameter endpointPathParameter:endPoint.getPathParameters()) {
+				MethodCallExpr getPathParametermethodcall = new MethodCallExpr(new NameExpr("parameterMap"), "put");
+				getPathParametermethodcall.addArgument(new StringLiteralExpr(endpointPathParameter.toString()));
+				getPathParametermethodcall.addArgument(new StringLiteralExpr(endpointPathParameter.toString()));
+
+				beforeTryblock.addStatement(getPathParametermethodcall);
+			}
+		
 		}
-
-		if (httpMethod.equalsIgnoreCase("GET") || httpMethod.equalsIgnoreCase("DELETE")	|| httpMethod.equalsIgnoreCase("PUT")) {
+		//parameterMap.put("uuid", "uuid");//TODO//need dynamic
+		if (httpMethod.equalsIgnoreCase("GET") || httpMethod.equalsIgnoreCase("DELETE")) {
 			MethodCallExpr getType_methodCall = new MethodCallExpr(new NameExpr("parameterMap"), "put");
 			getType_methodCall.addArgument(new StringLiteralExpr(getNonCapitalizeName(endPoint.getPath())));
 			getType_methodCall.addArgument(getNonCapitalizeName(endPoint.getPath())); 
-
+            System.out.println(endPoint.getCode()+"sssssssss"+endPoint.getPath());
+            
+            //UpdateSuppliersssssssss/{uuid}/{supplierid}/{suppliername}/{supplieraddress}
+            
 			beforeTryblock.addStatement(getType_methodCall);
 		}
 	
 		beforeTryblock.addStatement(new ExpressionStmt(new MethodCallExpr(SET_REQUEST_RESTPONSE_METHOD)));
-		Statement trystatement = generateTryBlock(var_result,httpMethod, endPoint.getPath(),injectedFieldName,endPointEntityClass,endPointDtoClass);
+		Statement trystatement = generateTryBlock(endPoint,var_result,httpMethod, endPoint.getPath(),injectedFieldName,endPointEntityClass,endPointDtoClass);
 
 		beforeTryblock.addStatement(trystatement);
 		restMethod.setBody(beforeTryblock);
@@ -493,26 +514,49 @@ public class GenerateJavaEnterpriseApplication extends Script {
 		return clazz;
 	}
 
-	private MethodDeclaration generateRestMethod(ClassOrInterfaceDeclaration clazz,String httpMethod,String path,String endPointDtoClass,String contentType) {
+	private MethodDeclaration generateRestMethod(Endpoint endPoint,ClassOrInterfaceDeclaration clazz,String httpMethod,String path,String endPointDtoClass,String contentType) {
 		
 		MethodDeclaration restMethod = clazz.addMethod("execute",Modifier.Keyword.PUBLIC);
 		restMethod.setType("Response");
 		restMethod.addMarkerAnnotation(httpMethod);
-
-		if (httpMethod.equalsIgnoreCase("GET") || httpMethod.equalsIgnoreCase("DELETE")	|| httpMethod.equalsIgnoreCase("PUT")) {
-			restMethod.addSingleMemberAnnotation("Path", new StringLiteralExpr(path));
-		}
+		
 
 		if (httpMethod.equalsIgnoreCase("POST") || httpMethod.equalsIgnoreCase("PUT")) {
-				restMethod.addParameter(endPointDtoClass, getNonCapitalizeName(endPointDtoClass));
+			StringBuilder pathinfo=new StringBuilder();   
+			if(endPointDtoClass != null) {
+			    	restMethod.addParameter(endPointDtoClass, getNonCapitalizeName(endPointDtoClass));
+			    	
+			    }
+			
+			//parameter :, @PathParam("uuid") String uuid
+			for(EndpointPathParameter endpointPathParameter: endPoint.getPathParameters()) {
+	    		Parameter restMethodParameter = new Parameter();
+	    		restMethodParameter.setType("String");
+	    		restMethodParameter.setName(endpointPathParameter.toString());
+				restMethodParameter.addSingleMemberAnnotation("PathParam", new StringLiteralExpr(endpointPathParameter.toString()));
+	    		restMethod.addParameter(restMethodParameter);
+	    		restMethodParameter=null;
+	    		
+	    		pathinfo.append("/{").append(endpointPathParameter.toString()).append("}");
+	    		
+	    	}
+	    	//    @Path("/{uuid}")
+	          if (!endPoint.getPathParameters().isEmpty()) {
+	        	  restMethod.addSingleMemberAnnotation("Path", new StringLiteralExpr(pathinfo.toString())); 
+	          }
+				
 		}
 
-		if (httpMethod.equalsIgnoreCase("GET") || httpMethod.equalsIgnoreCase("DELETE")	|| httpMethod.equalsIgnoreCase("PUT")) {
+		// @PathParam("uuid") String uuid;//TODO//need dynamic
+		if (httpMethod.equalsIgnoreCase("GET") || httpMethod.equalsIgnoreCase("DELETE")) {
 			Parameter restMethodParameter = new Parameter();
 			restMethodParameter.setType("String");
 			restMethodParameter.setName(getNonCapitalizeName(path));
 			restMethodParameter.addSingleMemberAnnotation("PathParam", new StringLiteralExpr(getNonCapitalizeName(path)));
 			restMethod.addParameter(restMethodParameter);
+			
+			//TODO//need to dynamic
+			restMethod.addSingleMemberAnnotation("Path", new StringLiteralExpr(path)); 
 		}
 	
 		if(contentType.equalsIgnoreCase("application/json")) {
@@ -524,15 +568,27 @@ public class GenerateJavaEnterpriseApplication extends Script {
 
 	}
 
-	private Statement generateTryBlock(VariableDeclarator assignmentVariable,String httpMethod,String path,String injectedFieldName,String endPointEntityClass,String endPointDtoClass) {
+	private Statement generateTryBlock(Endpoint endPoint,VariableDeclarator assignmentVariable,String httpMethod,String path,String injectedFieldName,String endPointEntityClass,String endPointDtoClass) {
 		BlockStmt tryblock = new BlockStmt();
 
-		if (httpMethod.equalsIgnoreCase("POST") || httpMethod.equalsIgnoreCase("PUT")) {
-			tryblock.addStatement(new MethodCallExpr(new NameExpr(injectedFieldName), "set" + endPointEntityClass)
-					.addArgument (new MethodCallExpr(new NameExpr(getNonCapitalizeName(endPointDtoClass)), "get" + endPointEntityClass)));
+		if (httpMethod.equalsIgnoreCase("POST") || httpMethod.equalsIgnoreCase("PUT")) {			
+			
+			  if(endPointDtoClass != null) {
+				  tryblock.addStatement(new MethodCallExpr(new NameExpr(injectedFieldName), "set" + endPointEntityClass)
+							.addArgument (new MethodCallExpr(new NameExpr(getNonCapitalizeName(endPointDtoClass)), "get" + endPointEntityClass)));
+			    }
+			  
+			   //_updateMyProduct.setUuid(uuid); //TODO-- need to setter
+			  List<EndpointPathParameter> pathParameters = endPoint.getPathParameters();
+		    	
+		    	for(EndpointPathParameter endpointPathParameter:pathParameters) {
+		    		tryblock.addStatement(new MethodCallExpr(new NameExpr(injectedFieldName), "set" + capitalize(endpointPathParameter.toString()))
+		    				.addArgument(new NameExpr(endpointPathParameter.toString())));
+		    	}
 		}
 
-		if (httpMethod.equalsIgnoreCase("GET") || httpMethod.equalsIgnoreCase("PUT") || httpMethod.equalsIgnoreCase("DELETE")) {
+		// @PathParam("uuid") String uuid;//TODO//need dynamic
+		if (httpMethod.equalsIgnoreCase("GET") ||  httpMethod.equalsIgnoreCase("DELETE")) {
 			tryblock.addStatement(new MethodCallExpr(new NameExpr(injectedFieldName), "set"+capitalize(path)).addArgument(getNonCapitalizeName(path)));
 		}
 			
