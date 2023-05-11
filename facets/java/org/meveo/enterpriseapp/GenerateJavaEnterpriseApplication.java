@@ -100,6 +100,8 @@ public class GenerateJavaEnterpriseApplication extends Script {
 	
 	private static final String CUSTOMENDPOINTRESOURCEFILE = "CustomEndpointResource.java";
 	
+	private static final String MAVENEEPOMFILE = "pom.xml";
+	
 	private static final String SET_REQUEST_RESTPONSE_METHOD = "setRequestResponse";
 	
 	private static final String CUSTOME_ENDPOINT_BASE_RESOURCE = "CustomEndpointResource";
@@ -140,6 +142,8 @@ public class GenerateJavaEnterpriseApplication extends Script {
 	private Repository repository;
 
 	private String moduleCode;	
+	
+	private String moduleversion       = "1.0.0"; 
 
 	public String getModuleCode() {
 		return this.moduleCode;
@@ -267,7 +271,7 @@ public class GenerateJavaEnterpriseApplication extends Script {
 			throw new BusinessException("Failed creating file." + e.getMessage());
 		}
 
-		List<File> templatefiles = templateFileCopy(enterpriseAppTemplatePath, moduleEnterpriseAppPath);
+		List<File> templatefiles = templateFileCopy(moduleCode,enterpriseAppTemplatePath, moduleEnterpriseAppPath);
 		filesToCommit.addAll(templatefiles);
 
 			}
@@ -632,9 +636,9 @@ public class GenerateJavaEnterpriseApplication extends Script {
 	
 	
 	/*
-	 * copy files (CustomEndpointResource.java, beans.xml) into project directory 
+	 * copy files (CustomEndpointResource.java, beans.xml, pom.xml) into project directory 
 	 */
-	private List<File> templateFileCopy(Path webappTemplatePath, Path moduleWebAppPath) throws BusinessException {
+	private List<File> templateFileCopy(String moduleCode , Path webappTemplatePath, Path moduleWebAppPath) throws BusinessException {
 		List<File> filesToCommit = new ArrayList<>();
 
 		try (Stream<Path> sourceStream = Files.walk(webappTemplatePath)) {
@@ -646,12 +650,19 @@ public class GenerateJavaEnterpriseApplication extends Script {
 				Path destinationPath = destinations.get(index);
 
 				if (sourcePath.toString().contains(CUSTOMENDPOINTRESOURCEFILE)
-						|| sourcePath.toString().contains(CDIBEANFILE)) {
+						|| sourcePath.toString().contains(CDIBEANFILE)|| sourcePath.toString().contains(MAVENEEPOMFILE)) {
 					try {
 						File outputFile = new File(destinationPath.toString());
 						File inputfile = new File(sourcePath.toString());
 						String inputcontent = FileUtils.readFileToString(inputfile, StandardCharsets.UTF_8.name());
-						FileUtils.write(outputFile, inputcontent, StandardCharsets.UTF_8);
+						
+						if(sourcePath.toString().contains(MAVENEEPOMFILE)) {
+							String updatedinputcontent = inputcontent.replace("moduleartifactId",moduleCode).replace("moduleversion", moduleversion);
+							FileUtils.write(outputFile, updatedinputcontent, StandardCharsets.UTF_8);
+						}else {
+							FileUtils.write(outputFile, inputcontent, StandardCharsets.UTF_8);
+						}
+						
 						filesToCommit.add(outputFile);
 					} catch (Exception e) {
 						throw new BusinessException("Failed creating file." + e.getMessage());
