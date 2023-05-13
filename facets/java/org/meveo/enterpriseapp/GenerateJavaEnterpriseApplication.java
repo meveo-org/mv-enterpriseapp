@@ -102,6 +102,10 @@ public class GenerateJavaEnterpriseApplication extends Script {
 	
 	private static final String MAVENEEPOMFILE = "pom.xml";
 	
+	private static final String INSTANTPARAMCONVERTER = "InstantParamConverter.java";
+	
+	private static final String INSTANTPARAMCONVERTERPROVIDER = "InstantParamConverterProvider.java";
+	
 	private static final String SET_REQUEST_RESTPONSE_METHOD = "setRequestResponse";
 	
 	private static final String CUSTOME_ENDPOINT_BASE_RESOURCE = "CustomEndpointResource";
@@ -350,15 +354,6 @@ public class GenerateJavaEnterpriseApplication extends Script {
 		compilationUnit.getImports().add(new ImportDeclaration(new Name("org.meveo.model.customEntities." + endPointEntityClass), false, false));
 		ClassOrInterfaceDeclaration classDeclaration = compilationUnit.addClass(endPointDtoClass).setPublic(true);
 
-		FieldDeclaration typefield = new FieldDeclaration();
-		VariableDeclarator typeVar = new VariableDeclarator();
-		typeVar.setName("type");
-		typeVar.setType("String");
-
-		typefield.setModifiers(Modifier.Keyword.PRIVATE);
-		typefield.addVariable(typeVar);
-		classDeclaration.addMember(typefield);
-
 		FieldDeclaration entityClassField = new FieldDeclaration();
 		VariableDeclarator entityClassVar = new VariableDeclarator();
 		entityClassVar.setName(endPointEntityClass.toLowerCase());
@@ -375,20 +370,12 @@ public class GenerateJavaEnterpriseApplication extends Script {
 		typeconsparam.setType(endPointEntityClass);
 		typeconsparam.setName(endPointEntityClass.toLowerCase());
 		constructor.addParameter(typeconsparam);
-		Parameter entityconsparam = new Parameter();
-		entityconsparam.setType(typeVar.getType());
-		entityconsparam.setName(typeVar.getName());
-		constructor.addParameter(entityconsparam);
-
+	
 		BlockStmt constructorbody = new BlockStmt();
-		AssignExpr typefiledexpression = new AssignExpr(new FieldAccessExpr(new ThisExpr(), typeVar.getNameAsString()), new NameExpr(typeVar.getName()),AssignExpr.Operator.ASSIGN);
 		AssignExpr entityClassFieldexpression =new AssignExpr(new FieldAccessExpr(new ThisExpr(), endPointEntityClass.toLowerCase()), new NameExpr(endPointEntityClass.toLowerCase()),AssignExpr.Operator.ASSIGN);
-		constructorbody.addStatement(typefiledexpression);
-    	constructorbody.addStatement(entityClassFieldexpression);
+		constructorbody.addStatement(entityClassFieldexpression);
 		constructor.setBody(constructorbody);
-		
-		typefield.createGetter();
-		typefield.createSetter();
+	
 		entityClassField.createGetter();
 		entityClassField.createSetter();
 
@@ -407,7 +394,7 @@ public class GenerateJavaEnterpriseApplication extends Script {
 		CompilationUnit cu = new CompilationUnit();
 		StringBuilder resourcepackage=new StringBuilder("org.meveo.").append(moduleCode).append(".resource");
 		cu.setPackageDeclaration(resourcepackage.toString());
-		cu.getImports().add(new ImportDeclaration(new Name("java.io"), false, true));
+		cu.getImports().add(new ImportDeclaration(new Name("java.time"), false, true));
 		cu.getImports().add(new ImportDeclaration(new Name("java.util"), false, true));
 		cu.getImports().add(new ImportDeclaration(new Name("javax.ws.rs"), false, true));
 		cu.getImports().add(new ImportDeclaration(new Name("javax.ws.rs.core"), false, true));
@@ -450,14 +437,7 @@ public class GenerateJavaEnterpriseApplication extends Script {
 		   getEntity_methodCall.addArgument(new MethodCallExpr(new NameExpr(getNonCapitalizeName(endPointDtoClass)), "get" + endPointEntityClass));
 
 		   beforeTryblock.addStatement(getEntity_methodCall);
-
-		   //parameterMap.put("type", productDto.getType());
-		   MethodCallExpr getType_methodCall = new MethodCallExpr(new NameExpr("parameterMap"), "put");
-		   getType_methodCall.addArgument(new StringLiteralExpr("type"));
-		   getType_methodCall.addArgument(new MethodCallExpr(new NameExpr(getNonCapitalizeName(endPointDtoClass)), "getType"));
-
-			beforeTryblock.addStatement(getType_methodCall);				
-	   }
+		  }
 	   
 	   //parameterMap.put("uuid", "uuid");
 	   for(EndpointPathParameter endpointPathParameter:endPoint.getPathParameters()) {
@@ -652,7 +632,9 @@ public class GenerateJavaEnterpriseApplication extends Script {
 				Path destinationPath = destinations.get(index);
 
 				if (sourcePath.toString().contains(CUSTOMENDPOINTRESOURCEFILE)
-						|| sourcePath.toString().contains(CDIBEANFILE)|| sourcePath.toString().contains(MAVENEEPOMFILE)) {
+						|| sourcePath.toString().contains(CDIBEANFILE)|| sourcePath.toString().contains(MAVENEEPOMFILE)
+						|| sourcePath.toString().contains(INSTANTPARAMCONVERTER)|| sourcePath.toString().contains(INSTANTPARAMCONVERTERPROVIDER)
+						) {
 					try {
 						File outputFile = new File(destinationPath.toString());
 						File inputfile = new File(sourcePath.toString());
