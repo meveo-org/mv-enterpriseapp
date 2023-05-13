@@ -287,6 +287,7 @@ public class GenerateJavaEnterpriseApplication extends Script {
 	List<String> getEntityClassesByScriptCode(List<String> scriptCodes)throws BusinessException  {
 		List<String> scriptEntityClasses = new ArrayList<>();
 		List<String> entityTypes = new ArrayList<>();
+		List<String> entityTypesToRemove = new ArrayList<>();
 		for (String scriptCode : scriptCodes) {
 			ScriptInstance scriptInstance = scriptInstanceService.findByCode(scriptCode);
 			List<Accessor> scriptSetters = scriptInstance.getSetters();
@@ -296,23 +297,24 @@ public class GenerateJavaEnterpriseApplication extends Script {
 			entityTypes.addAll(entityType);
 
 		}
-		entityTypes.removeAll(Arrays.asList("String"));
-		if(entityTypes.isEmpty()) {
-			return null;
-		}
-		try {
-			for (String entityType : entityTypes) {
-				Class entityClass = Class.forName(customEntityPackage + "." + entityType);
-				if (!entityClass.isPrimitive() && CustomEntity.class.isAssignableFrom(entityClass)) {
-					scriptEntityClasses.add(entityType);
-				}
-
+		
+		for (String entityType : entityTypes) {
+			
+			try {
+			Class entityClass = Class.forName(customEntityPackage + "." + entityType);
+			if (CustomEntity.class.isAssignableFrom(entityClass)) {
+				scriptEntityClasses.add(entityType);  // except only custom entities which implement CustomEntity interface
 			}
-
-		} catch (Exception e) {
-			throw new BusinessException("Entity Class not found." + e.getMessage());
+			}
+			catch (Exception e) {
+				entityTypesToRemove.add(entityType);  // not expected type.
+			}
 		}
-
+			entityTypes.removeAll(entityTypesToRemove);
+			if(entityTypes.isEmpty()) {
+				return null;
+			}
+   
 		return scriptEntityClasses;
 	}
 
