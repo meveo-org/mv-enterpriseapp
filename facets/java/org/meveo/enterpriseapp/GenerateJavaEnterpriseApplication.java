@@ -44,6 +44,7 @@ import org.meveo.service.script.Script;
 import org.meveo.service.script.ScriptInstanceService;
 import org.meveo.service.storage.RepositoryService;
 import org.meveo.service.technicalservice.endpoint.EndpointService;
+import org.meveo.util.Version;
 import org.meveo.model.CustomEntity;
 import org.meveo.model.customEntities.*;
 import org.slf4j.Logger;
@@ -641,7 +642,8 @@ public class GenerateJavaEnterpriseApplication extends Script {
 						String inputcontent = FileUtils.readFileToString(inputfile, StandardCharsets.UTF_8.name());
 						
 						if(sourcePath.toString().contains(MAVENEEPOMFILE)) {
-							String updatedinputcontent = inputcontent.replace("moduleartifactId",moduleCode).replace("moduleversion", moduleversion);
+							String updatedinputcontent = inputcontent.replace("moduleartifactId",moduleCode)
+									.replace("moduleversion", moduleversion).replace("meveo.base.version",Version.appVersion);
 							FileUtils.write(outputFile, updatedinputcontent, StandardCharsets.UTF_8);
 						}else {
 							FileUtils.write(outputFile, inputcontent, StandardCharsets.UTF_8);
