@@ -414,52 +414,61 @@ public class GenerateJavaEnterpriseApplication extends Script {
 		
 		String injectedFieldName=getNonCapitalizeNameWithPrefix(serviceCode);
 		ClassOrInterfaceDeclaration clazz = generateRestClass(cu,endPointCode,httpMethod,endPoint.getBasePath(),serviceCode,injectedFieldName);
-		MethodDeclaration restMethod = generateRestMethod(endPoint,clazz,httpMethod,endPoint.getPath(),endPointDtoClass,endPoint.getContentType());
+		MethodDeclaration restMethodSignature = generateRestMethodSignature(endPoint,clazz,httpMethod,endPoint.getPath(),endPointDtoClass,endPoint.getContentType());
 
-		BlockStmt beforeTryblock = new BlockStmt();
 		VariableDeclarator var_result = new VariableDeclarator();
-		ScriptInstance scriptInstance = scriptInstanceService.findByCode(endPoint.getService().getCode());
-		for (Accessor getter : scriptInstance.getGetters()) {
-			var_result.setName(getter.getName());
-			var_result.setType(getter.getType());
-		}
-		var_result.setInitializer(new NullLiteralExpr());
+		
+		BlockStmt beforeTrybBlockStmt = beforeTrybBlockStmt(endPoint,var_result,endPointEntityClass,endPointDtoClass);
+		Statement tryBlockstatement = generateTryBlock(endPoint,var_result,httpMethod, endPoint.getPath(),injectedFieldName,endPointEntityClass,endPointDtoClass);
+		beforeTrybBlockStmt.addStatement(tryBlockstatement);
 
-		NodeList<VariableDeclarator> var_result_declarator = new NodeList<>();
-		var_result_declarator.add(var_result);
-		beforeTryblock.addStatement(new ExpressionStmt().setExpression(new VariableDeclarationExpr().setVariables(var_result_declarator)));
-
-		beforeTryblock.addStatement(new ExpressionStmt(new NameExpr("parameterMap = new HashMap<String, Object>()")));
-
-		// parameterMap.put("product", productDto.getProduct());        
-	   if(endPointDtoClass != null) {
-		   MethodCallExpr getEntity_methodCall = new MethodCallExpr(new NameExpr("parameterMap"), "put");
-		   getEntity_methodCall.addArgument(new StringLiteralExpr(getNonCapitalizeName(endPointEntityClass)));
-		   getEntity_methodCall.addArgument(new MethodCallExpr(new NameExpr(getNonCapitalizeName(endPointDtoClass)), "get" + endPointEntityClass));
-
-		   beforeTryblock.addStatement(getEntity_methodCall);
-		  }
-	   
-	   //parameterMap.put("uuid", "uuid");
-	   for(EndpointPathParameter endpointPathParameter:endPoint.getPathParameters()) {
-		   MethodCallExpr getPathParametermethodcall = new MethodCallExpr(new NameExpr("parameterMap"), "put");
-		   getPathParametermethodcall.addArgument(new StringLiteralExpr(endpointPathParameter.toString()));
-		   getPathParametermethodcall.addArgument(new StringLiteralExpr(endpointPathParameter.toString()));
-
-		   beforeTryblock.addStatement(getPathParametermethodcall);
-		}
-
-	    beforeTryblock.addStatement(new ExpressionStmt(new MethodCallExpr(SET_REQUEST_RESTPONSE_METHOD)));
-		Statement trystatement = generateTryBlock(endPoint,var_result,httpMethod, endPoint.getPath(),injectedFieldName,endPointEntityClass,endPointDtoClass);
-
-		beforeTryblock.addStatement(trystatement);
-		restMethod.setBody(beforeTryblock);
-
-		restMethod.getBody().get().getStatements().add(getReturnType());
+		restMethodSignature.setBody(beforeTrybBlockStmt);
+		restMethodSignature.getBody().get().getStatements().add(getReturnType());
+		
 		return cu.toString();
 		}
 	
+	  
+	  private BlockStmt beforeTrybBlockStmt(Endpoint endPoint,VariableDeclarator var_result,String endPointEntityClass,String endPointDtoClass) {
+			BlockStmt beforeTryblock = new BlockStmt();
+			
+			ScriptInstance scriptInstance = scriptInstanceService.findByCode(endPoint.getService().getCode());
+			for (Accessor getter : scriptInstance.getGetters()) {
+				var_result.setName(getter.getName());
+				var_result.setType(getter.getType());
+			}
+			var_result.setInitializer(new NullLiteralExpr());
 
+			NodeList<VariableDeclarator> var_result_declarator = new NodeList<>();
+			var_result_declarator.add(var_result);
+			beforeTryblock.addStatement(new ExpressionStmt().setExpression(new VariableDeclarationExpr().setVariables(var_result_declarator)));
+
+			beforeTryblock.addStatement(new ExpressionStmt(new NameExpr("parameterMap = new HashMap<String, Object>()")));
+
+			// parameterMap.put("product", productDto.getProduct());        
+		   if(endPointDtoClass != null) {
+			   MethodCallExpr getEntity_methodCall = new MethodCallExpr(new NameExpr("parameterMap"), "put");
+			   getEntity_methodCall.addArgument(new StringLiteralExpr(getNonCapitalizeName(endPointEntityClass)));
+			   getEntity_methodCall.addArgument(new MethodCallExpr(new NameExpr(getNonCapitalizeName(endPointDtoClass)), "get" + endPointEntityClass));
+
+			   beforeTryblock.addStatement(getEntity_methodCall);
+			  }
+		   
+		   //parameterMap.put("uuid", "uuid");
+		   for(EndpointPathParameter endpointPathParameter:endPoint.getPathParameters()) {
+			   MethodCallExpr getPathParametermethodcall = new MethodCallExpr(new NameExpr("parameterMap"), "put");
+			   getPathParametermethodcall.addArgument(new StringLiteralExpr(endpointPathParameter.toString()));
+			   getPathParametermethodcall.addArgument(new StringLiteralExpr(endpointPathParameter.toString()));
+
+			   beforeTryblock.addStatement(getPathParametermethodcall);
+			}
+
+		    beforeTryblock.addStatement(new ExpressionStmt(new MethodCallExpr(SET_REQUEST_RESTPONSE_METHOD)));
+		    return beforeTryblock;
+		}
+
+	  
+	  
 	private ClassOrInterfaceDeclaration generateRestClass(CompilationUnit cu,String endPointCode,String httpMethod,String httpBasePath,String serviceCode,String injectedFieldName) {
 		ClassOrInterfaceDeclaration clazz = cu.addClass(endPointCode,	Modifier.Keyword.PUBLIC);
 		clazz.addSingleMemberAnnotation("Path", new StringLiteralExpr(httpBasePath));
@@ -473,7 +482,7 @@ public class GenerateJavaEnterpriseApplication extends Script {
 		return clazz;
 	}
 
-	private MethodDeclaration generateRestMethod(Endpoint endPoint,ClassOrInterfaceDeclaration clazz,String httpMethod,String path,String endPointDtoClass,String contentType) {
+	private MethodDeclaration generateRestMethodSignature(Endpoint endPoint,ClassOrInterfaceDeclaration clazz,String httpMethod,String path,String endPointDtoClass,String contentType) {
 		ScriptInstance scriptInstance = scriptInstanceService.findByCode(endPoint.getService().getCode());
 		MethodDeclaration restMethod = clazz.addMethod("execute",Modifier.Keyword.PUBLIC);
 		restMethod.setType("Response");
