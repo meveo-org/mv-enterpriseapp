@@ -289,6 +289,9 @@ public class GenerateJavaEnterpriseApplication extends Script {
 		log.debug("------ GenerateJavaEnterpriseApplication.execute()--------------");
 	}
 	
+	/*
+	 * Get all entity class by scriptcode 
+	 */
 	List<String> getEntityClassesByScriptCode(List<String> scriptCodes)throws BusinessException  {
 		List<String> scriptEntityClasses = new ArrayList<>();
 		List<String> entityTypes = new ArrayList<>();
