@@ -105,10 +105,6 @@ public class GenerateJavaEnterpriseApplication extends Script {
 	
 	private static final String MAVENEEPOMFILE = "pom.xml";
 	
-	private static final String INSTANTPARAMCONVERTER = "InstantParamConverter.java";
-	
-	private static final String INSTANTPARAMCONVERTERPROVIDER = "InstantParamConverterProvider.java";
-	
 	private static final String SET_REQUEST_RESTPONSE_METHOD = "setRequestResponse";
 	
 	private static final String CUSTOME_ENDPOINT_BASE_RESOURCE = "CustomEndpointResource";
@@ -220,7 +216,7 @@ public class GenerateJavaEnterpriseApplication extends Script {
 		try {
 
 			File restConfigfile = new File(moduleEnterpriseAppDirectory, pathJavaRestConfigurationFile);
-			String restConfigurationFileContent = generateRestConfiguration(moduleCode);
+			String restConfigurationFileContent = generateRestConfigurationClass(moduleCode);
 			FileUtils.write(restConfigfile, restConfigurationFileContent, StandardCharsets.UTF_8);
 			filesToCommit.add(restConfigfile);
 		} catch (IOException e) {
@@ -282,8 +278,12 @@ public class GenerateJavaEnterpriseApplication extends Script {
 		log.debug("------ GenerateJavaEnterpriseApplication.execute()--------------");
 	}
 	
-	/*
+	/**
 	 * create a DTO class for each endpoint 
+	 * @param moduleCode
+	 * @param endpoint
+	 * @param endPointDtoClass
+	 * @return
 	 */
 	String generateEndPointDto(String moduleCode,Endpoint endpoint, String endPointDtoClass) {
 		CompilationUnit compilationUnit = new CompilationUnit();
@@ -325,10 +325,12 @@ public class GenerateJavaEnterpriseApplication extends Script {
 	
 	
 
-	/*
-	 * Generate Rest Configuration file 
+	/**
+	 * Generate Rest Configuration class 
+	 * @param moduleCode
+	 * @return
 	 */
-	String generateRestConfiguration(String moduleCode) {
+	String generateRestConfigurationClass(String moduleCode) {
 		CompilationUnit compilationUnit = new CompilationUnit();
 		StringBuilder restconfigurationpackage=new StringBuilder("org.meveo.").append(moduleCode).append(".rest");
 		compilationUnit.setPackageDeclaration(restconfigurationpackage.toString());
@@ -346,8 +348,13 @@ public class GenerateJavaEnterpriseApplication extends Script {
 
 	}
 
-	/*
-	 * Generate EndPoint 
+	/**
+	 *  Generate EndPoint class
+	 * @param endPoint
+	 * @param endPointEntityClass
+	 * @param endPointDtoClass
+	 * @param moduleCode
+	 * @return
 	 */
 	  public String generateEndPoint(Endpoint endPoint,String endPointEntityClass,String endPointDtoClass,String moduleCode) {
 	    String endPointCode        = endPoint.getCode();
@@ -379,7 +386,7 @@ public class GenerateJavaEnterpriseApplication extends Script {
 
 		VariableDeclarator var_result = new VariableDeclarator();
 		
-		BlockStmt beforeTrybBlockStmt = beforeTrybBlockStmt(endPoint,var_result,endPointEntityClass,endPointDtoClass);
+		BlockStmt beforeTrybBlockStmt = beforeTryBlockStmt(endPoint,var_result,endPointEntityClass,endPointDtoClass);
 		Statement tryBlockstatement = generateTryBlock(endPoint,var_result,httpMethod, endPoint.getPath(),injectedFieldName,endPointEntityClass,endPointDtoClass);
 		beforeTrybBlockStmt.addStatement(tryBlockstatement);
 
@@ -389,8 +396,15 @@ public class GenerateJavaEnterpriseApplication extends Script {
 		return cu.toString();
 		}
 	
-	  
-	  private BlockStmt beforeTrybBlockStmt(Endpoint endPoint,VariableDeclarator var_result,String endPointEntityClass,String endPointDtoClass) {
+	  /**
+	   * Exmaple :  parameterMap.put("product", createProductRSDto.getProduct());
+	   * @param endPoint
+	   * @param var_result
+	   * @param endPointEntityClass
+	   * @param endPointDtoClass
+	   * @return
+	   */
+	  private BlockStmt beforeTryBlockStmt(Endpoint endPoint,VariableDeclarator var_result,String endPointEntityClass,String endPointDtoClass) {
 		BlockStmt beforeTryblock = new BlockStmt();
 		
 		ScriptInstance scriptInstance = scriptInstanceService.findByCode(endPoint.getService().getCode());
@@ -444,7 +458,17 @@ public class GenerateJavaEnterpriseApplication extends Script {
 	    beforeTryblock.addStatement(new ExpressionStmt(new MethodCallExpr(SET_REQUEST_RESTPONSE_METHOD)));
 	    return beforeTryblock;
 		}
-	  
+	 
+	  /**
+	   * Create Rest class
+	   * @param cu
+	   * @param endPointCode
+	   * @param httpMethod
+	   * @param httpBasePath
+	   * @param serviceCode
+	   * @param injectedFieldName
+	   * @return
+	   */
 	private ClassOrInterfaceDeclaration generateRestClass(CompilationUnit cu,String endPointCode,String httpMethod,String httpBasePath,String serviceCode,String injectedFieldName) {
 		ClassOrInterfaceDeclaration clazz = cu.addClass(endPointCode,	Modifier.Keyword.PUBLIC);
 		clazz.addSingleMemberAnnotation("Path", new StringLiteralExpr(httpBasePath));
@@ -457,7 +481,16 @@ public class GenerateJavaEnterpriseApplication extends Script {
 		clazz.setExtendedTypes(extendsList);
 		return clazz;
 	}
-
+    /**
+     * Example : public Response execute(CreateProductRSDto createProductRSDto)
+     * @param endPoint
+     * @param clazz
+     * @param httpMethod
+     * @param path
+     * @param endPointDtoClass
+     * @param contentType
+     * @return
+     */
 	private MethodDeclaration generateRestMethodSignature(Endpoint endPoint,ClassOrInterfaceDeclaration clazz,String httpMethod,String path,String endPointDtoClass,String contentType) {
 		ScriptInstance scriptInstance = scriptInstanceService.findByCode(endPoint.getService().getCode());
 		MethodDeclaration restMethod = clazz.addMethod("execute",Modifier.Keyword.PUBLIC);
@@ -518,6 +551,17 @@ public class GenerateJavaEnterpriseApplication extends Script {
 
 	}
 	
+	/**
+	 * call meveo script setter ,init ,execute,finalize,getResult method
+	 * @param endPoint
+	 * @param assignmentVariable
+	 * @param httpMethod
+	 * @param path
+	 * @param injectedFieldName
+	 * @param endPointEntityClass
+	 * @param endPointDtoClass
+	 * @return
+	 */
 	private Statement generateTryBlock(Endpoint endPoint,VariableDeclarator assignmentVariable,String httpMethod,String path,String injectedFieldName,String endPointEntityClass,String endPointDtoClass) {
 		BlockStmt tryblock = new BlockStmt();
 		ScriptInstance scriptInstance = scriptInstanceService.findByCode(endPoint.getService().getCode());
@@ -576,13 +620,18 @@ public class GenerateJavaEnterpriseApplication extends Script {
 		cc.setParameter(new Parameter().setName(exceptionName).setType(BusinessException.class));
 		BlockStmt cb = new BlockStmt();
 		cb.addStatement(new ExpressionStmt(	new NameExpr("return Response.status(Response.Status.BAD_REQUEST).entity(result).build()")));
-		// cb.addStatement(new ThrowStmt(new NameExpr(ex8uj ceptionName)));
 		cc.setBody(cb);
 		ts.setCatchClauses(new NodeList<>(cc));
 
 		return ts;
 	}
-
+    /**
+     * Examp:  result = _createMyProduct.getResult();
+     * @param assignOject : result
+     * @param callOBject  : _createMyProduct
+     * @param methodName  : getResult()
+     * @return
+     */
 	private Statement assignment(String assignOject, String callOBject, String methodName) {
 		MethodCallExpr methodCallExpr = new MethodCallExpr(new NameExpr(callOBject), methodName);
 		AssignExpr assignExpr = new AssignExpr(new NameExpr(assignOject), methodCallExpr, AssignExpr.Operator.ASSIGN);
@@ -667,9 +716,8 @@ public class GenerateJavaEnterpriseApplication extends Script {
 				Path destinationPath = destinations.get(index);
 
 				if (sourcePath.toString().contains(CUSTOMENDPOINTRESOURCEFILE)
-						|| sourcePath.toString().contains(CDIBEANFILE)|| sourcePath.toString().contains(MAVENEEPOMFILE)
-						|| sourcePath.toString().contains(INSTANTPARAMCONVERTER)|| sourcePath.toString().contains(INSTANTPARAMCONVERTERPROVIDER)
-						) {
+						|| sourcePath.toString().contains(CDIBEANFILE)|| sourcePath.toString().contains(MAVENEEPOMFILE)) {
+						
 					try {
 						File outputFile = new File(destinationPath.toString());
 						File inputfile = new File(sourcePath.toString());
