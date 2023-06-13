@@ -230,11 +230,9 @@ public class GenerateJavaEnterpriseApplication extends Script {
 				.filter(item -> CUSTOM_ENDPOINT_TEMPLATE.equals(item.getItemClass()))
 				.map(entity -> entity.getItemCode()).collect(Collectors.toList());
 	
-		 String endPointEntityClass=null; 
 		 String endPointDtoClass=null; 
 		 
 		for (String endpointCode : endpointCodes) {
-			endPointEntityClass=null; 
 		    endPointDtoClass=null; 
 			Endpoint endpoint = endpointService.findByCode(endpointCode);
 			//Endpoint DTO class Generation
@@ -258,7 +256,7 @@ public class GenerateJavaEnterpriseApplication extends Script {
 		String pathEndpointFile = "facets/java/org/meveo/" + moduleCode + "/resource/"	+ endpoint.getCode() + ".java";
 		try {
 			File endPointFile = new File(moduleEnterpriseAppDirectory, pathEndpointFile);
-			String endPointContent = generateEndPoint(endpoint, endPointEntityClass,endPointDtoClass,moduleCode);
+			String endPointContent = generateEndPoint(endpoint, endPointDtoClass,moduleCode);
 			FileUtils.write(endPointFile, endPointContent, StandardCharsets.UTF_8);
 			filesToCommit.add(endPointFile);
 		} catch (IOException e) {
@@ -351,12 +349,11 @@ public class GenerateJavaEnterpriseApplication extends Script {
 	/**
 	 *  Generate EndPoint class
 	 * @param endPoint
-	 * @param endPointEntityClass
 	 * @param endPointDtoClass
 	 * @param moduleCode
 	 * @return
 	 */
-	  public String generateEndPoint(Endpoint endPoint,String endPointEntityClass,String endPointDtoClass,String moduleCode) {
+	  public String generateEndPoint(Endpoint endPoint,String endPointDtoClass,String moduleCode) {
 	    String endPointCode        = endPoint.getCode();
 	    String httpMethod          = endPoint.getMethod().getLabel();
 	    String serviceCode         = getServiceCode(endPoint.getService().getCode());
@@ -386,8 +383,8 @@ public class GenerateJavaEnterpriseApplication extends Script {
 
 		VariableDeclarator var_result = new VariableDeclarator();
 		
-		BlockStmt beforeTrybBlockStmt = beforeTryBlockStmt(endPoint,var_result,endPointEntityClass,endPointDtoClass);
-		Statement tryBlockstatement = generateTryBlock(endPoint,var_result,httpMethod, endPoint.getPath(),injectedFieldName,endPointEntityClass,endPointDtoClass);
+		BlockStmt beforeTrybBlockStmt = beforeTryBlockStmt(endPoint,var_result,endPointDtoClass);
+		Statement tryBlockstatement = generateTryBlock(endPoint,var_result,injectedFieldName,endPointDtoClass);
 		beforeTrybBlockStmt.addStatement(tryBlockstatement);
 
 		restMethodSignature.setBody(beforeTrybBlockStmt);
@@ -400,11 +397,10 @@ public class GenerateJavaEnterpriseApplication extends Script {
 	   * Exmaple :  parameterMap.put("product", createProductRSDto.getProduct());
 	   * @param endPoint
 	   * @param var_result
-	   * @param endPointEntityClass
 	   * @param endPointDtoClass
 	   * @return
 	   */
-	  private BlockStmt beforeTryBlockStmt(Endpoint endPoint,VariableDeclarator var_result,String endPointEntityClass,String endPointDtoClass) {
+	  private BlockStmt beforeTryBlockStmt(Endpoint endPoint,VariableDeclarator var_result,String endPointDtoClass) {
 		BlockStmt beforeTryblock = new BlockStmt();
 		
 		ScriptInstance scriptInstance = scriptInstanceService.findByCode(endPoint.getService().getCode());
@@ -558,11 +554,10 @@ public class GenerateJavaEnterpriseApplication extends Script {
 	 * @param httpMethod
 	 * @param path
 	 * @param injectedFieldName
-	 * @param endPointEntityClass
 	 * @param endPointDtoClass
 	 * @return
 	 */
-	private Statement generateTryBlock(Endpoint endPoint,VariableDeclarator assignmentVariable,String httpMethod,String path,String injectedFieldName,String endPointEntityClass,String endPointDtoClass) {
+	private Statement generateTryBlock(Endpoint endPoint,VariableDeclarator assignmentVariable,String injectedFieldName,String endPointDtoClass) {
 		BlockStmt tryblock = new BlockStmt();
 		ScriptInstance scriptInstance = scriptInstanceService.findByCode(endPoint.getService().getCode());
 		
