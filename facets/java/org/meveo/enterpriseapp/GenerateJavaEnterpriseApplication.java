@@ -256,7 +256,7 @@ public class GenerateJavaEnterpriseApplication extends Script {
 		String pathEndpointFile = "facets/java/org/meveo/" + moduleCode + "/resource/"	+ endpoint.getCode() + ".java";
 		try {
 			File endPointFile = new File(moduleEnterpriseAppDirectory, pathEndpointFile);
-			String endPointContent = generateEndPoint(endpoint, endPointDtoClass,moduleCode);
+			String endPointContent = generateEndPoint(moduleCode,endpoint, endPointDtoClass);
 			FileUtils.write(endPointFile, endPointContent, StandardCharsets.UTF_8);
 			filesToCommit.add(endPointFile);
 		} catch (IOException e) {
@@ -353,7 +353,7 @@ public class GenerateJavaEnterpriseApplication extends Script {
 	 * @param moduleCode
 	 * @return
 	 */
-	  public String generateEndPoint(Endpoint endPoint,String endPointDtoClass,String moduleCode) {
+	  public String generateEndPoint(String moduleCode,Endpoint endPoint,String endPointDtoClass) {
 	    String endPointCode        = endPoint.getCode();
 	    String httpMethod          = endPoint.getMethod().getLabel();
 	    String serviceCode         = getServiceCode(endPoint.getService().getCode());
@@ -383,7 +383,7 @@ public class GenerateJavaEnterpriseApplication extends Script {
 
 		VariableDeclarator var_result = new VariableDeclarator();
 		
-		BlockStmt beforeTrybBlockStmt = beforeTryBlockStmt(endPoint,var_result,endPointDtoClass);
+		BlockStmt beforeTrybBlockStmt = generateBeforeTryBlockStmt(endPoint,var_result,endPointDtoClass);
 		Statement tryBlockstatement = generateTryBlock(endPoint,var_result,injectedFieldName,endPointDtoClass);
 		beforeTrybBlockStmt.addStatement(tryBlockstatement);
 
@@ -400,7 +400,7 @@ public class GenerateJavaEnterpriseApplication extends Script {
 	   * @param endPointDtoClass
 	   * @return
 	   */
-	  private BlockStmt beforeTryBlockStmt(Endpoint endPoint,VariableDeclarator var_result,String endPointDtoClass) {
+	  private BlockStmt generateBeforeTryBlockStmt(Endpoint endPoint,VariableDeclarator var_result,String endPointDtoClass) {
 		BlockStmt beforeTryblock = new BlockStmt();
 		
 		ScriptInstance scriptInstance = scriptInstanceService.findByCode(endPoint.getService().getCode());
