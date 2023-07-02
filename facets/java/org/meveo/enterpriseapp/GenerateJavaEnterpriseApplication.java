@@ -210,7 +210,7 @@ public class GenerateJavaEnterpriseApplication extends Script {
 		
 		//***************RestConfiguration file  Generation************************
 
-		String pathJavaRestConfigurationFile = "facets/java/org/meveo/" + moduleCode + "/rest/"
+		String pathJavaRestConfigurationFile = "facets/javaee/org/meveo/" + moduleCode + "/rest/"
 				+ capitalize(moduleCode) + "RestConfig" + ".java";
 
 		try {
@@ -240,7 +240,7 @@ public class GenerateJavaEnterpriseApplication extends Script {
 			if (endpoint.getMethod().getLabel().equalsIgnoreCase("POST") || endpoint.getMethod().getLabel().equalsIgnoreCase("PUT")) {
 			
 				endPointDtoClass=endpoint.getCode()+"Dto";
-				String pathJavaDtoFile = "facets/java/org/meveo/" + moduleCode + "/dto/" + endPointDtoClass + ".java";
+				String pathJavaDtoFile = "facets/javaee/org/meveo/" + moduleCode + "/dto/" + endPointDtoClass + ".java";
 				try {
 					File dtofile = new File(moduleEnterpriseAppDirectory, pathJavaDtoFile);
 					String dtocontent = generateEndPointDto(moduleCode,endpoint,endPointDtoClass);
@@ -253,7 +253,7 @@ public class GenerateJavaEnterpriseApplication extends Script {
 			 }	
 			}
 			//Endpoint Class Generation
-		String pathEndpointFile = "facets/java/org/meveo/" + moduleCode + "/resource/"	+ endpoint.getCode() + ".java";
+		String pathEndpointFile = "facets/javaee/org/meveo/" + moduleCode + "/resource/"	+ endpoint.getCode() + ".java";
 		try {
 			File endPointFile = new File(moduleEnterpriseAppDirectory, pathEndpointFile);
 			String endPointContent = generateEndPoint(moduleCode,endpoint, endPointDtoClass);
