@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -205,7 +206,7 @@ public class GenerateJavaEnterpriseApplication extends Script {
 		gitClient.checkout(moduleEnterpriseAppRepo, MEVEO_BRANCH, true);
 		File moduleEnterpriseAppDirectory = GitHelper.getRepositoryDir(user, moduleEnterpriseAppRepo);
 		Path moduleEnterpriseAppPath = moduleEnterpriseAppDirectory.toPath();
-
+		String pomFilePath= moduleEnterpriseAppDirectory.getAbsolutePath() + "\\facets\\maven\\pom.xml";
 		List<File> filesToCommit = new ArrayList<>();
 		
 		//***************RestConfiguration file  Generation************************
@@ -263,7 +264,10 @@ public class GenerateJavaEnterpriseApplication extends Script {
 			throw new BusinessException("Failed creating file." + e.getMessage());
 		}
 
-		List<File> templatefiles = templateFileCopy(moduleCode,enterpriseAppTemplatePath, moduleEnterpriseAppPath);
+		String tagToKeep = "repositories";
+		String repositoriesTagContent = copyXmlTagContent(pomFilePath,tagToKeep);
+
+		List<File> templatefiles = templateFileCopy(moduleCode,enterpriseAppTemplatePath, moduleEnterpriseAppPath,repositoriesTagContent);
 		filesToCommit.addAll(templatefiles);
 
 			}
@@ -695,11 +699,32 @@ public class GenerateJavaEnterpriseApplication extends Script {
 		return str.substring(0, 1).toUpperCase() + str.substring(1).trim();
 	}
 	
+	/*
+	 * read a desiredTagContent from xml file
+	 */
+	private static String copyXmlTagContent (String xmlFilePath,String tagToKeep) {
+		String xmlContent = null;
+		try {
+			xmlContent = Files.readString(Paths.get(xmlFilePath));
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		// Extract the content of the desired tag
+		int startTagIndex = xmlContent.indexOf("<" + tagToKeep);
+		int endTagIndex = xmlContent.indexOf("</" + tagToKeep + ">", startTagIndex);
+
+		if (startTagIndex != -1 && endTagIndex != -1) {
+		    String desiredTagContent = xmlContent.substring(startTagIndex, endTagIndex + tagToKeep.length() + 3);
+            return desiredTagContent;
+		}
+		return null;
+	}
+	
 	
 	/*
 	 * copy files (CustomEndpointResource.java, beans.xml, pom.xml) into project directory 
 	 */
-	private List<File> templateFileCopy(String moduleCode , Path webappTemplatePath, Path moduleWebAppPath) throws BusinessException {
+	private List<File> templateFileCopy(String moduleCode , Path webappTemplatePath, Path moduleWebAppPath , String repositoriesTagContent) throws BusinessException {
 		List<File> filesToCommit = new ArrayList<>();
 
 		try (Stream<Path> sourceStream = Files.walk(webappTemplatePath)) {
@@ -720,7 +745,8 @@ public class GenerateJavaEnterpriseApplication extends Script {
 						
 						if(sourcePath.toString().contains(MAVENEEPOMFILE)) {
 							String updatedinputcontent = inputcontent.replace("moduleartifactId",moduleCode)
-									.replace("moduleversion", moduleversion).replace("meveo.base.version",Version.appVersion);
+									.replace("moduleversion", moduleversion).replace("meveo.base.version",Version.appVersion)
+									.replace("repositorylist", repositoriesTagContent);
 							FileUtils.write(outputFile, updatedinputcontent, StandardCharsets.UTF_8);
 						}else {
 							FileUtils.write(outputFile, inputcontent, StandardCharsets.UTF_8);
