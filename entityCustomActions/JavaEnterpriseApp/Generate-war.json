@@ -1,0 +1,1 @@
+{"code":"Generate-war","description":"Generate-war","appliesTo":"CE_JavaEnterpriseApp","label":"Generate-war","script":"org.meveo.enterpriseapp.GenerateJavaEnterpriseApplication","applicableToEntityList":false,"applicableToEntityInstance":true,"scriptParameters":{}}

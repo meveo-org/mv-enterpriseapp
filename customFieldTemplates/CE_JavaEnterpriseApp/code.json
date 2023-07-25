@@ -16,7 +16,7 @@
   "fileExtensions" : [ ],
   "saveOnExplorer" : false,
   "guiPosition" : "tab:JavaEnterpriseApp:0;field:0",
-  "identifier" : true,
+  "identifier" : false,
   "storages" : [ "SQL" ],
   "samples" : [ ],
   "summary" : false,

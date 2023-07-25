@@ -1,6 +1,5 @@
 {
   "code" : "org.meveo.enterpriseapp.GenerateJavaEnterpriseApplication",
-  "description" : "GenerateJavaEnterpriseApplication",
   "inputs" : [ {
     "name" : "moduleCode",
     "type" : "String"
