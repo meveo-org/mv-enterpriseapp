@@ -3,11 +3,13 @@ package org.meveo.enterpriseapp;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -19,6 +21,10 @@ import javax.ws.rs.PathParam;
 import javax.ws.rs.QueryParam;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.maven.shared.invoker.DefaultInvocationRequest;
+import org.apache.maven.shared.invoker.DefaultInvoker;
+import org.apache.maven.shared.invoker.InvocationRequest;
+import org.apache.maven.shared.invoker.MavenInvocationException;
 import org.meveo.persistence.CrossStorageService;
 import org.meveo.security.MeveoUser;
 import org.meveo.admin.exception.BusinessException;
@@ -275,9 +281,63 @@ public class GenerateJavaEnterpriseApplication extends Script {
 		if (!filesToCommit.isEmpty()) {
 			gitClient.commitFiles(moduleEnterpriseAppRepo, filesToCommit, "DTO & Endpoint generation.");
 		}
+		
+		generationWar(moduleEnterpriseAppDirectory.getAbsolutePath());
 
 		}
 		log.debug("------ GenerateJavaEnterpriseApplication.execute()--------------");
+	}
+	
+	/*
+	 * Generate module war file in local repo folder
+	 */
+	private void generationWar(String moduleEnterpriseAppDirectoryPath)throws IOException {
+		String javaPath = moduleEnterpriseAppDirectoryPath+"\\facets\\java";
+		String javasymlinkpath = moduleEnterpriseAppDirectoryPath+"\\facets\\mavenee\\src\\main\\java";
+		symbolicLinkCreation(javaPath,javasymlinkpath);
+		
+		String javaeePath = moduleEnterpriseAppDirectoryPath+"\\facets\\javaee";
+		String javaeesymlinkpath = moduleEnterpriseAppDirectoryPath+"\\facets\\mavenee\\src\\main\\javaee";
+		symbolicLinkCreation(javaeePath,javaeesymlinkpath);	
+		
+        String mvnHome = null;
+		
+		if(System.getenv("MAVEN_HOME") != null) {
+			mvnHome = System.getenv("MAVEN_HOME");
+		}else if(System.getenv("M2_HOME") != null) {
+			mvnHome = System.getenv("M2_HOME");
+		}else if(System.getenv("MVN_HOME") != null) {
+			mvnHome = System.getenv("MVN_HOME");
+		}
+		
+		String maveneeDir =moduleEnterpriseAppDirectoryPath + "\\facets\\mavenee";
+		
+		InvocationRequest request = new DefaultInvocationRequest();
+		request.setBaseDirectory(new File(maveneeDir));
+		request.setGoals(Collections.singletonList("package")); 
+
+		try {
+			DefaultInvoker invoker = new DefaultInvoker();
+			invoker.setMavenHome(new File(mvnHome));
+			invoker.execute(request);
+		} catch (MavenInvocationException e) {
+			e.printStackTrace();
+		}
+	}
+
+	/*
+	 * Create Symbolic link for Java , JavaEE folder
+	 */
+	private void symbolicLinkCreation(String targetFilePath,String symbolicLinkPath)throws IOException {
+		
+		if (Files.exists(Paths.get(symbolicLinkPath))) {
+			Files.delete(Paths.get(symbolicLinkPath));
+		}
+
+		Path target = FileSystems.getDefault().getPath(targetFilePath);
+		Path link = FileSystems.getDefault().getPath(symbolicLinkPath);
+		Files.createSymbolicLink(link, target);
+	
 	}
 	
 	/**
