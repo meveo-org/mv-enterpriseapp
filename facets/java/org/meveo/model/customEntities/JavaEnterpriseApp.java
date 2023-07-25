@@ -4,7 +4,9 @@ import org.meveo.model.CustomEntity;
 import org.meveo.model.persistence.DBStorageType;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
-public class JavaEnterpriseApp implements CustomEntity {
+import java.io.Serializable;
+
+public class JavaEnterpriseApp implements CustomEntity, Serializable {
 
     public JavaEnterpriseApp() {
     }
