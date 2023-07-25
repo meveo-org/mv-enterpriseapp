@@ -328,8 +328,8 @@ public class GenerateJavaEnterpriseApplication extends Script {
 	/*
 	 * Create Symbolic link for Java , JavaEE folder
 	 */
-	private void symbolicLinkCreation(String targetFilePath,String symbolicLinkPath)throws IOException {
-		
+	private void symbolicLinkCreation(String targetFilePath,String symbolicLinkPath) {
+		try {
 		if (Files.exists(Paths.get(symbolicLinkPath))) {
 			Files.delete(Paths.get(symbolicLinkPath));
 		}
@@ -337,6 +337,9 @@ public class GenerateJavaEnterpriseApplication extends Script {
 		Path target = FileSystems.getDefault().getPath(targetFilePath);
 		Path link = FileSystems.getDefault().getPath(symbolicLinkPath);
 		Files.createSymbolicLink(link, target);
+		}catch (IOException e) {
+			e.printStackTrace();
+		}
 	
 	}
 	
