@@ -291,7 +291,7 @@ public class GenerateJavaEnterpriseApplication extends Script {
 	/*
 	 * Generate module war file in local repo folder
 	 */
-	private void generationWar(String moduleEnterpriseAppDirectoryPath)throws IOException {
+	private void generationWar(String moduleEnterpriseAppDirectoryPath) {
 		String javaPath = moduleEnterpriseAppDirectoryPath+"\\facets\\java";
 		String javasymlinkpath = moduleEnterpriseAppDirectoryPath+"\\facets\\mavenee\\src\\main\\java";
 		symbolicLinkCreation(javaPath,javasymlinkpath);
