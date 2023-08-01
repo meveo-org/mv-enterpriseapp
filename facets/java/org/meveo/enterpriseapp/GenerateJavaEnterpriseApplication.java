@@ -212,7 +212,7 @@ public class GenerateJavaEnterpriseApplication extends Script {
 		gitClient.checkout(moduleEnterpriseAppRepo, MEVEO_BRANCH, true);
 		File moduleEnterpriseAppDirectory = GitHelper.getRepositoryDir(user, moduleEnterpriseAppRepo);
 		Path moduleEnterpriseAppPath = moduleEnterpriseAppDirectory.toPath();
-		String pomFilePath= moduleEnterpriseAppDirectory.getAbsolutePath() + "\\facets\\maven\\pom.xml";
+		String pomFilePath= moduleEnterpriseAppDirectory.getAbsolutePath() + "/facets/maven/pom.xml";
 		List<File> filesToCommit = new ArrayList<>();
 		
 		//***************RestConfiguration file  Generation************************
@@ -292,12 +292,12 @@ public class GenerateJavaEnterpriseApplication extends Script {
 	 * Generate module war file in local repo folder
 	 */
 	private void generationWar(String moduleEnterpriseAppDirectoryPath) {
-		String javaPath = moduleEnterpriseAppDirectoryPath+"\\facets\\java";
-		String javasymlinkpath = moduleEnterpriseAppDirectoryPath+"\\facets\\mavenee\\src\\main\\java";
+		String javaPath = moduleEnterpriseAppDirectoryPath+"/facets/java";
+		String javasymlinkpath = moduleEnterpriseAppDirectoryPath+"/facets/mavenee/src/main/java";
 		symbolicLinkCreation(javaPath,javasymlinkpath);
 		
-		String javaeePath = moduleEnterpriseAppDirectoryPath+"\\facets\\javaee";
-		String javaeesymlinkpath = moduleEnterpriseAppDirectoryPath+"\\facets\\mavenee\\src\\main\\javaee";
+		String javaeePath = moduleEnterpriseAppDirectoryPath+"/facets/javaee";
+		String javaeesymlinkpath = moduleEnterpriseAppDirectoryPath+"/facets/mavenee/src/main/javaee";
 		symbolicLinkCreation(javaeePath,javaeesymlinkpath);	
 		
         String mvnHome = null;
@@ -310,7 +310,7 @@ public class GenerateJavaEnterpriseApplication extends Script {
 			mvnHome = System.getenv("MVN_HOME");
 		}
 		
-		String maveneeDir =moduleEnterpriseAppDirectoryPath + "\\facets\\mavenee";
+		String maveneeDir =moduleEnterpriseAppDirectoryPath + "/facets/mavenee";
 		
 		InvocationRequest request = new DefaultInvocationRequest();
 		request.setBaseDirectory(new File(maveneeDir));
