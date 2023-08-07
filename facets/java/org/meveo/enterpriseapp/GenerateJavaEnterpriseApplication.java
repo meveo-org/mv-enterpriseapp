@@ -112,6 +112,8 @@ public class GenerateJavaEnterpriseApplication extends Script {
 	
 	private static final String MAVENEEPOMFILE = "pom.xml";
 	
+	private static final String DEPLOYMENTSCRIPTFILE = "moduledeployment.sh";
+	
 	private static final String SET_REQUEST_RESTPONSE_METHOD = "setRequestResponse";
 	
 	private static final String CUSTOME_ENDPOINT_BASE_RESOURCE = "CustomEndpointResource";
@@ -799,7 +801,8 @@ public class GenerateJavaEnterpriseApplication extends Script {
 				Path destinationPath = destinations.get(index);
 
 				if (sourcePath.toString().contains(CUSTOMENDPOINTRESOURCEFILE)
-						|| sourcePath.toString().contains(CDIBEANFILE)|| sourcePath.toString().contains(MAVENEEPOMFILE)) {
+						|| sourcePath.toString().contains(CDIBEANFILE)|| sourcePath.toString().contains(MAVENEEPOMFILE) 
+						|| sourcePath.toString().contains(DEPLOYMENTSCRIPTFILE) ) {
 						
 					try {
 						File outputFile = new File(destinationPath.toString());
@@ -813,6 +816,11 @@ public class GenerateJavaEnterpriseApplication extends Script {
 							FileUtils.write(outputFile, updatedinputcontent, StandardCharsets.UTF_8);
 						}else {
 							FileUtils.write(outputFile, inputcontent, StandardCharsets.UTF_8);
+						}
+						
+						if(sourcePath.toString().contains(DEPLOYMENTSCRIPTFILE)) {
+							String updatedinputcontent = inputcontent.replace("modulecode",moduleCode);
+							FileUtils.write(outputFile, updatedinputcontent, StandardCharsets.UTF_8);
 						}
 						
 						filesToCommit.add(outputFile);
