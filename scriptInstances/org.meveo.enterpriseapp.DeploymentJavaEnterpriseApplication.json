@@ -1,0 +1,15 @@
+{
+  "code" : "org.meveo.enterpriseapp.DeploymentJavaEnterpriseApplication",
+  "inputs" : [ {
+    "name" : "moduleCode",
+    "type" : "String"
+  } ],
+  "outputs" : [ ],
+  "generateOutputs" : false,
+  "type" : "JAVA",
+  "transactionType" : "SAME",
+  "executionRoles" : [ ],
+  "sourcingRoles" : [ ],
+  "mavenDependencies" : [ ],
+  "importScriptInstances" : [ ]
+}

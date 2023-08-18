@@ -4,7 +4,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.meveo</groupId>
   <artifactId>mv-enterpriseapp</artifactId>
-  <version>0.1</version>
+  <version>1.0.0</version>
   <properties>
     <jakartaee-version>8.0.0</jakartaee-version>
     <maven.compiler.target>11</maven.compiler.target>
@@ -31,23 +31,6 @@
       <version>7.2.0-SNAPSHOT</version>
       <optional>true</optional>
     </dependency>
-    
-	<dependency>
-		<groupId>org.apache.maven.shared</groupId>
-		<artifactId>maven-invoker</artifactId>
-		<version>3.2.0</version>
-		<exclusions>
-			<exclusion>
-				<groupId>commons-io</groupId>
-				<artifactId>commons-io</artifactId>
-			</exclusion>
-			<exclusion>
-				<groupId>javax.inject</groupId>
-				<artifactId>javax.inject</artifactId>
-			</exclusion>
-		</exclusions>
-	</dependency>
-    
   </dependencies>
   <repositories>
     <repository>

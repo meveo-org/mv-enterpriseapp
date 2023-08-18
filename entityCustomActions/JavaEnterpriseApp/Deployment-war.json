@@ -1,0 +1,1 @@
+{"code":"Deployment-war","description":"Deployment-war","appliesTo":"CE_JavaEnterpriseApp","label":"Deployment-war","script":"org.meveo.enterpriseapp.DeploymentJavaEnterpriseApplication","applicableToEntityList":false,"applicableToEntityInstance":true,"scriptParameters":{}}
