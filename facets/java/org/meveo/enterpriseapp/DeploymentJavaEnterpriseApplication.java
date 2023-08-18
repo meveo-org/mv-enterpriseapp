@@ -47,6 +47,8 @@ public class DeploymentJavaEnterpriseApplication extends Script {
 		String xmlContent = "<module id=\"WAR.meveo.meveomodule\"><web><web-uri>meveomodule.war</web-uri> <context-root>/meveomodule</context-root> </web></module></application>";
 		File tempfolder = new File(tempfolderPath); 
 		tempfolder.mkdir();
+		File shellscriptfile = new File(scriptPath); 
+		shellscriptfile.setExecutable(true,false);
 		prepareMeveoEarFile(moduleCode, earFilePath, warFilePath.replaceAll("meveomodule", moduleCode), xmlContent.replaceAll("meveomodule", moduleCode), outputPath);
 		
 		try {
