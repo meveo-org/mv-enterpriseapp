@@ -216,7 +216,7 @@ public class GenerateJavaEnterpriseApplication extends Script {
 		Path moduleEnterpriseAppPath = moduleEnterpriseAppDirectory.toPath();
 		String pomFilePath= moduleEnterpriseAppDirectory.getAbsolutePath() + "/facets/maven/pom.xml";
 		List<File> filesToCommit = new ArrayList<>();
-		
+		String basePath = paramBeanFactory.getInstance().getProperty("providers.rootDir", "./meveodata/") ;
 		//***************RestConfiguration file  Generation************************
 
 		String pathJavaRestConfigurationFile = "facets/javaee/org/meveo/" + moduleCode + "/rest/"
@@ -275,7 +275,7 @@ public class GenerateJavaEnterpriseApplication extends Script {
 		String tagToKeep = "repositories";
 		String repositoriesTagContent = copyXmlTagContent(pomFilePath,tagToKeep);
 
-		List<File> templatefiles = templateFileCopy(moduleCode,enterpriseAppTemplatePath, moduleEnterpriseAppPath,repositoriesTagContent);
+		List<File> templatefiles = templateFileCopy(moduleCode,enterpriseAppTemplatePath, moduleEnterpriseAppPath,repositoriesTagContent,basePath);
 		filesToCommit.addAll(templatefiles);
 
 			}
@@ -789,7 +789,7 @@ public class GenerateJavaEnterpriseApplication extends Script {
 	/*
 	 * copy files (CustomEndpointResource.java, beans.xml, pom.xml) into project directory 
 	 */
-	private List<File> templateFileCopy(String moduleCode , Path webappTemplatePath, Path moduleWebAppPath , String repositoriesTagContent) throws BusinessException {
+	private List<File> templateFileCopy(String moduleCode , Path webappTemplatePath, Path moduleWebAppPath , String repositoriesTagContent ,String basePath) throws BusinessException {
 		List<File> filesToCommit = new ArrayList<>();
 
 		try (Stream<Path> sourceStream = Files.walk(webappTemplatePath)) {
@@ -819,7 +819,8 @@ public class GenerateJavaEnterpriseApplication extends Script {
 						}
 						
 						if(sourcePath.toString().contains(DEPLOYMENTSCRIPTFILE)) {
-							String updatedinputcontent = inputcontent.replace("modulecode",moduleCode);
+							String wildfyPath=basePath.replaceAll("/meveodata", "");
+							String updatedinputcontent = inputcontent.replace("modulecode",moduleCode).replace("wildfypath", wildfyPath);
 							FileUtils.write(outputFile, updatedinputcontent, StandardCharsets.UTF_8);
 						}
 						
