@@ -26,7 +26,7 @@ public class DeploymentJavaEnterpriseApplication extends Script {
 	@Override
 	public void execute(Map<String, Object> parameters) throws BusinessException {
 		log.info("deployment java enterprise application from module, {}", moduleCode);
-		//deploymentOfModule(moduleCode);
+		deploymentOfModule(moduleCode);
 		log.info(" ----------module deployment --------");
 	}
 
