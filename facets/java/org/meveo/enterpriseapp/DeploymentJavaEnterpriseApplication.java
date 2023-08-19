@@ -79,12 +79,14 @@ public class DeploymentJavaEnterpriseApplication extends Script {
 			while ((entry = earZipInput.getNextEntry()) != null) {
 				String entryName = entry.getName();
 				if (!entry.getName().equals("META-INF/application.xml")) {
+					if (!entryName.equals(entrywarFileName)) {
 					earZipOutput.putNextEntry(new ZipEntry(entryName));
 
 					while ((bytesRead = earZipInput.read(buffer)) != -1) {
 						earZipOutput.write(buffer, 0, bytesRead);
 					}
 					earZipOutput.closeEntry();
+					}
 				} else {
 					ByteArrayOutputStream xmlBuffer = new ByteArrayOutputStream();
 					while ((bytesRead = earZipInput.read(buffer)) > 0) {
