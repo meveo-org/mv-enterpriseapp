@@ -42,9 +42,10 @@ public class DeploymentJavaEnterpriseApplication extends Script {
 		String outputPath =  wildfyPath +"/standalone/databackup/meveo.ear";
 		String tempfolderPath =  wildfyPath +"/standalone/databackup";
 		
+		String lineSeparator = System.lineSeparator();
 		String warFilePath = basePath + "/default/git/meveomodule/facets/mavenee/target/meveomodule.war";
 		String scriptPath =  basePath + "/default/git/meveomodule/facets/mavenee/moduledeployment.sh";
-		String xmlContent = "<module id=\"WAR.meveo.meveomodule\"><web><web-uri>meveomodule.war</web-uri> <context-root>/meveomodule</context-root> </web></module></application>";
+		String xmlContent = lineSeparator + "<module id=\"WAR.meveo.meveomodule\"><web><web-uri>meveomodule.war</web-uri> <context-root>/meveomodule</context-root> </web></module>"+lineSeparator+"</application>";
 		File tempfolder = new File(tempfolderPath); 
 		tempfolder.mkdir();
 		File shellscriptfile = new File(scriptPath.replaceAll("meveomodule", moduleCode)); 
