@@ -293,7 +293,7 @@ public class GenerateJavaEnterpriseApplication extends Script {
 	/*
 	 * Generate module war file in local repo folder
 	 */
-	private void generationWar(String moduleEnterpriseAppDirectoryPath) {
+	private void generationWar(String moduleEnterpriseAppDirectoryPath) throws BusinessException  {
 		String javaPath = moduleEnterpriseAppDirectoryPath+"/facets/java";
 		String javasymlinkpath = moduleEnterpriseAppDirectoryPath+"/facets/mavenee/src/main/java";
 		symbolicLinkCreation(javaPath,javasymlinkpath);
@@ -324,6 +324,7 @@ public class GenerateJavaEnterpriseApplication extends Script {
 			invoker.execute(request);
 		} catch (MavenInvocationException e) {
 			e.printStackTrace();
+			throw new BusinessException("Failed creating file." + e.getMessage());
 		}
 	}
 
