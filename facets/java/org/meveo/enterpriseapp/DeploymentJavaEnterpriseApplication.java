@@ -22,6 +22,8 @@ public class DeploymentJavaEnterpriseApplication extends Script {
 	private static final Logger log = LoggerFactory.getLogger(DeploymentJavaEnterpriseApplication.class);
 	private String moduleCode;
 	private ParamBeanFactory paramBeanFactory = getCDIBean(ParamBeanFactory.class);
+	private static final String WarFile_NOTFOUND = "Module War file not found";
+    private static final String Deployment_Failed = "Deployment Failed ";
 
 	@Override
 	public void execute(Map<String, Object> parameters) throws BusinessException {
@@ -34,7 +36,7 @@ public class DeploymentJavaEnterpriseApplication extends Script {
 		this.moduleCode = moduleCode;
 	}
 
-	 void deploymentOfModule(String moduleCode) {
+	 void deploymentOfModule(String moduleCode) throws BusinessException{
 		String basePath = paramBeanFactory.getInstance().getProperty("providers.rootDir", "./meveodata/") ;
 		String wildfyPath=basePath.replaceAll("/meveodata", "");
 		
@@ -60,14 +62,19 @@ public class DeploymentJavaEnterpriseApplication extends Script {
 			System.out.println("Please wait for meveo deployment " + exitCode);
 		} catch (IOException | InterruptedException e) {
 			e.printStackTrace();
+			throw new BusinessException(Deployment_Failed);
 		}
 	}
 
 	 void prepareMeveoEarFile(String moduleCode, String earFilePath, String warFilePath, String xmlContent,
-			String outputPath) {
+			String outputPath) throws BusinessException{
 
 		try {
 			File warFile = new File(warFilePath);
+			if(!warFile.exists()) {
+              log.info(" -----deployment is not proced due to module war file not found  this location --------");
+              throw new BusinessException(WarFile_NOTFOUND);
+            }
 			String entrywarFileName = warFile.getName();
 			FileInputStream earFileInput = new FileInputStream(earFilePath);
 			FileOutputStream earFileOutput = new FileOutputStream(outputPath);
@@ -120,6 +127,7 @@ public class DeploymentJavaEnterpriseApplication extends Script {
 			earFileOutput.close();
 		} catch (IOException e) {
 			e.printStackTrace();
+			throw new BusinessException(Deployment_Failed);
 		}
 
 	}
