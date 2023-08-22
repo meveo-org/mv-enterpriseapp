@@ -22,8 +22,8 @@ public class DeploymentJavaEnterpriseApplication extends Script {
 	private static final Logger log = LoggerFactory.getLogger(DeploymentJavaEnterpriseApplication.class);
 	private String moduleCode;
 	private ParamBeanFactory paramBeanFactory = getCDIBean(ParamBeanFactory.class);
-	private static final String WarFile_NOTFOUND = "Module War file not found";
-    private static final String Deployment_Failed = "Deployment Failed ";
+	private static final String WARFILE_NOTFOUND = "Module War file not found";
+    private static final String DEPLOYMENT_FAILED = "Deployment Failed ";
 
 	@Override
 	public void execute(Map<String, Object> parameters) throws BusinessException {
@@ -62,7 +62,7 @@ public class DeploymentJavaEnterpriseApplication extends Script {
 			System.out.println("Please wait for meveo deployment " + exitCode);
 		} catch (IOException | InterruptedException e) {
 			e.printStackTrace();
-			throw new BusinessException(Deployment_Failed);
+			throw new BusinessException(DEPLOYMENT_FAILED);
 		}
 	}
 
@@ -73,7 +73,7 @@ public class DeploymentJavaEnterpriseApplication extends Script {
 			File warFile = new File(warFilePath);
 			if(!warFile.exists()) {
               log.info(" -----deployment is not proced due to module war file not found  this location --------");
-              throw new BusinessException(WarFile_NOTFOUND);
+              throw new BusinessException(WARFILE_NOTFOUND);
             }
 			String entrywarFileName = warFile.getName();
 			FileInputStream earFileInput = new FileInputStream(earFilePath);
@@ -127,7 +127,7 @@ public class DeploymentJavaEnterpriseApplication extends Script {
 			earFileOutput.close();
 		} catch (IOException e) {
 			e.printStackTrace();
-			throw new BusinessException(Deployment_Failed);
+			throw new BusinessException(DEPLOYMENT_FAILED);
 		}
 
 	}
