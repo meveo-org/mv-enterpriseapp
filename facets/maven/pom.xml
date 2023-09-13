@@ -47,7 +47,7 @@
     </repository>
     <repository>
       <id>meveo-repo</id>
-      <url>http://localhost:8080/meveo/maven</url>
+      <url>https://docker.meveo/meveo/maven</url>
     </repository>
   </repositories>
   <build />
