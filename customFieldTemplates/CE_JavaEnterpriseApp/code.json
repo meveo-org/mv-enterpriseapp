@@ -19,7 +19,7 @@
   "identifier" : false,
   "storages" : [ "SQL" ],
   "samples" : [ ],
-  "summary" : false,
+  "summary" : true,
   "audited" : false,
   "persisted" : true,
   "filter" : true,
