@@ -33,6 +33,7 @@
     </dependency>
   </dependencies>
   <repositories>
+
     <repository>
       <id>maven central</id>
       <url>https://repo1.maven.org/maven2/</url>
@@ -41,6 +42,7 @@
       <id>meveo-repo</id>
       <url>https://docker.meveo/meveo/maven</url>
     </repository>
+
   </repositories>
   <build />
 </project>
