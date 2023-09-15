@@ -23,7 +23,7 @@ public class DeploymentJavaEnterpriseApplication extends Script {
     private static final String WARFILE_NOTFOUND = "Module war file not found";
     private static final String DEPLOYMENT_FAILED = "Deployment failed";
     private static final String LINE_SEPARATOR = System.lineSeparator();
-    private static final String[] PATH_SEPARATORS = { "/", "\\" };
+    private static final String[] PATH_SEPARATORS = { "./", "/", ".\\","\\"};
 
     private String moduleCode;
 
@@ -145,7 +145,6 @@ public class DeploymentJavaEnterpriseApplication extends Script {
         initializeWildflyDirectory(wildflyPath);
 
         String tempFolderPath = String.join(File.separator, wildflyPath, "standalone", "databackup");
-        LOG.info("Temp folder path: {}", tempFolderPath);
         initializeTempFolder(tempFolderPath);
 
         String mavenPath = buildMavenPath(meveoDataPath, providerCode);
