@@ -109,8 +109,8 @@ public class DeploymentJavaEnterpriseApplication extends Script {
         String wildflyPath = StringUtils.removeEnd(meveoDataPath, "meveodata");
         wildflyPath = StringUtils.stripEnd(wildflyPath, PATH_SEPARATORS);
         wildflyPath = StringUtils.stripEnd(wildflyPath, ".");
+        LOG.info("wildfly path: {}", wildflyPath);
         initializeWildflyDirectory(wildflyPath);
-        LOG.info("wildfly path: {}", meveoDataPath);
 
         String tempFolderPath = String.join(File.separator, wildflyPath, "standalone", "databackup");
         initializeTempFolder(tempFolderPath);
