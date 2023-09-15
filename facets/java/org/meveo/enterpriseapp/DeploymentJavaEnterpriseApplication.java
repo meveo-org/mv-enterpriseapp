@@ -1,9 +1,7 @@
 package org.meveo.enterpriseapp;
 
 import java.io.*;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -84,17 +82,8 @@ public class DeploymentJavaEnterpriseApplication extends Script {
         return directory;
     }
 
-    private String buildMavenEEPath(String meveoDataPath, String providerCode) {
-        return String.join(File.separator, meveoDataPath, providerCode, "git", "facets", "mavenee");
-    }
-
-    private String buildWarPath(String meveoDataPath, String providerCode) {
-        return String.join(File.separator, buildMavenEEPath(meveoDataPath, providerCode), "target",
-                moduleCode + ".war");
-    }
-
-    private String buildDeploymentScriptPath(String meveoDataPath, String providerCode) {
-        return String.join(File.separator, buildMavenEEPath(meveoDataPath, providerCode), "moduledeployment.sh");
+    private String buildMavenPath(String dataPath, String providerCode) {
+        return String.join(File.separator, dataPath, providerCode, "git", "facets", "mavenee");
     }
 
     private String buildXmlContent() {
@@ -108,7 +97,7 @@ public class DeploymentJavaEnterpriseApplication extends Script {
                 "</application>");
     }
 
-    private void checkDirectoryPermissions(File directory){
+    private void checkDirectoryPermissions(File directory) {
         String directoryPath = directory.getPath();
         if (!directory.exists() || !directory.isDirectory()) {
             throw new RuntimeException("Directory " + directoryPath + "does not exist");
@@ -131,6 +120,7 @@ public class DeploymentJavaEnterpriseApplication extends Script {
     private void initializeWildflyDirectory(String wildflyDirectoryPath) throws BusinessException {
         File wildflyDirectory = new File(wildflyDirectoryPath);
         checkDirectoryPermissions(wildflyDirectory);
+        LOG.info("Successfully initialized wildfly directory: {}", wildflyDirectory.getAbsolutePath());
     }
 
     private void initializeTempFolder(String tempFolderPath) throws BusinessException {
@@ -142,36 +132,36 @@ public class DeploymentJavaEnterpriseApplication extends Script {
             }
         }
         checkDirectoryPermissions(tempFolder);
+        LOG.info("Successfully initialized temp folder: {}", tempFolder.getAbsolutePath());
     }
 
     private void deploymentOfModule(String moduleCode) throws BusinessException {
         String providerCode = normalizeDirectory(config.getProperty("provider.rootDir", "default"));
         String meveoDataPath = config.getProperty("providers.rootDir", "./meveodata");
         meveoDataPath = trimEnd(meveoDataPath, PATH_SEPARATORS);
-        LOG.info("Meveo data path: {}", meveoDataPath);
 
         String wildflyPath = StringUtils.removeEnd(meveoDataPath, "meveodata");
         wildflyPath = trimEnd(wildflyPath, PATH_SEPARATORS);
-        LOG.info("Wildfly path: {}", wildflyPath);
         initializeWildflyDirectory(wildflyPath);
 
-        String earFilePath = String.join(File.separator, wildflyPath, "standalone", "deployments", "meveo.ear");
-        LOG.info("Current EAR file path: {}", earFilePath);
-        String outputPath = wildflyPath + "/standalone/databackup/meveo.ear";
-        LOG.info("Updated EAR file path: {}", outputPath);
-
-        String tempFolderPath = wildflyPath + "/standalone/databackup";
+        String tempFolderPath = String.join(File.separator, wildflyPath, "standalone", "databackup");
         LOG.info("Temp folder path: {}", tempFolderPath);
         initializeTempFolder(tempFolderPath);
 
-        String deploymentScriptPath = buildDeploymentScriptPath(meveoDataPath, providerCode);
+        String mavenPath = buildMavenPath(meveoDataPath, providerCode);
+
+        prepareMeveoEarFile(moduleCode, providerCode, wildflyPath, mavenPath);
+
+        String deploymentScriptPath = String.join(File.separator, mavenPath, "moduledeployment.sh");
         File deploymentScript = new File(deploymentScriptPath);
-        deploymentScript.setExecutable(true, false);
-        prepareMeveoEarFile(moduleCode, earFilePath, buildWarPath(meveoDataPath, providerCode), buildXmlContent(),
-                outputPath);
+        LOG.info("Deployment script file: {}", deploymentScript.getAbsolutePath());
+        boolean scriptExecutable = deploymentScript.setExecutable(true, false);
+        if (!scriptExecutable) {
+            throw new BusinessException("Failed to set deployment script: " + deploymentScriptPath + " as executable");
+        }
 
         try {
-            File scriptDirectory = new File(deploymentScriptPath).getParentFile();
+            File scriptDirectory = deploymentScript.getParentFile();
             Process process = Runtime.getRuntime().exec(deploymentScriptPath, null, scriptDirectory);
             LOG.info("RUNNING SCRIPT: {}", deploymentScriptPath);
             int exitCode = process.waitFor();
@@ -182,28 +172,40 @@ public class DeploymentJavaEnterpriseApplication extends Script {
         }
     }
 
-    private void prepareMeveoEarFile(String moduleCode, String earFilePath, String warFilePath, String xmlContent,
-            String outputPath) throws BusinessException {
+    private void prepareMeveoEarFile(String moduleCode, String providerCode, String wildflyPath, String mavenPath)
+            throws BusinessException {
+        String earFilePath = String.join(File.separator, wildflyPath, "standalone", "deployments", "meveo.ear");
+        File earFile = new File(earFilePath);
+        if (!earFile.exists()) {
+            throw new BusinessException("Meveo EAR file: " + earFilePath + ", not found");
+        }
+        LOG.info("Current EAR file path: {}", earFile.getAbsolutePath());
+
+        String warFilePath = String.join(File.separator, mavenPath, "target", moduleCode + ".war");
+        File warFile = new File(warFilePath);
+        if (!warFile.exists()) {
+            throw new BusinessException("Module war file: " + warFilePath + ", not found\"");
+        }
+        LOG.info("Module WAR file path: {}", warFile.getAbsolutePath());
+
+        String outputFilePath = String.join(File.separator, wildflyPath, "standalone", "databackup", "meveo.ear");
+        File outputFile = new File(outputFilePath);
+        LOG.info("Updated EAR file path: {}", outputFile.getAbsolutePath());
 
         try {
-            File warFile = new File(warFilePath);
-            if (!warFile.exists()) {
-                LOG.error("Deployment will not proceed, module war file: {}, not found", warFilePath);
-                throw new BusinessException(WARFILE_NOTFOUND);
-            }
-            String entrywarFileName = warFile.getName();
-            FileInputStream earFileInput = new FileInputStream(earFilePath);
-            FileOutputStream earFileOutput = new FileOutputStream(outputPath);
+            String warFileName = warFile.getName();
+            FileInputStream earFileInput = new FileInputStream(earFile);
+            FileOutputStream earFileOutput = new FileOutputStream(outputFile);
             ZipOutputStream earZipOutput = new ZipOutputStream(earFileOutput);
             ZipInputStream earZipInput = new ZipInputStream(earFileInput);
             ByteArrayOutputStream updatedXmlContent = new ByteArrayOutputStream();
-            byte[] buffer = new byte[1024];
+            byte[] buffer = new byte[102400];
             int bytesRead;
             ZipEntry entry;
             while ((entry = earZipInput.getNextEntry()) != null) {
                 String entryName = entry.getName();
                 if (!entry.getName().equals("META-INF/application.xml")) {
-                    if (!entryName.equals(entrywarFileName)) {
+                    if (!entryName.equals(warFileName)) {
                         earZipOutput.putNextEntry(new ZipEntry(entryName));
 
                         while ((bytesRead = earZipInput.read(buffer)) != -1) {
@@ -219,8 +221,8 @@ public class DeploymentJavaEnterpriseApplication extends Script {
                     if (xmlBuffer.toString().contains(moduleCode)) {  // If moduleCode already exist
                         updatedXmlContent.write(xmlBuffer.toString().getBytes());
                     } else {
-                        updatedXmlContent.write(xmlBuffer.toString().replaceAll("</application>", "").getBytes());
-                        updatedXmlContent.write(xmlContent.getBytes());
+                        updatedXmlContent.write(
+                                xmlBuffer.toString().replaceAll("</application>", buildXmlContent()).getBytes());
                     }
 
                     earZipOutput.putNextEntry(new ZipEntry("META-INF/application.xml"));
@@ -230,7 +232,7 @@ public class DeploymentJavaEnterpriseApplication extends Script {
             }
 
             FileInputStream warFileInput = new FileInputStream(warFilePath);
-            earZipOutput.putNextEntry(new ZipEntry(entrywarFileName));
+            earZipOutput.putNextEntry(new ZipEntry(warFileName));
             while ((bytesRead = warFileInput.read(buffer)) != -1) {
                 earZipOutput.write(buffer, 0, bytesRead);
             }
