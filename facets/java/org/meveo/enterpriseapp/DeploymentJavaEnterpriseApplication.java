@@ -1,24 +1,37 @@
 package org.meveo.enterpriseapp;
 
 import java.io.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 
 import org.meveo.admin.exception.BusinessException;
+import org.meveo.commons.utils.ParamBean;
 import org.meveo.commons.utils.ParamBeanFactory;
 import org.meveo.service.script.Script;
 
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class DeploymentJavaEnterpriseApplication extends Script {
     private static final Logger LOG = LoggerFactory.getLogger(DeploymentJavaEnterpriseApplication.class);
+    private final ParamBeanFactory paramBeanFactory = getCDIBean(ParamBeanFactory.class);
+    private final ParamBean config = paramBeanFactory.getInstance();
+    private static final String WARFILE_NOTFOUND = "Module war file not found";
+    private static final String DEPLOYMENT_FAILED = "Deployment failed";
+    private static final String LINE_SEPARATOR = System.lineSeparator();
+    private static final String[] PATH_SEPARATORS = { "/", "\\" };
+
     private String moduleCode;
-    private ParamBeanFactory paramBeanFactory = getCDIBean(ParamBeanFactory.class);
-    private static final String WARFILE_NOTFOUND = "Module War file not found";
-    private static final String DEPLOYMENT_FAILED = "Deployment Failed ";
+
+    public void setModuleCode(String moduleCode) {
+        this.moduleCode = moduleCode;
+    }
 
     @Override
     public void execute(Map<String, Object> parameters) throws BusinessException {
@@ -27,37 +40,140 @@ public class DeploymentJavaEnterpriseApplication extends Script {
         LOG.info("END - Deploying {} module war", moduleCode);
     }
 
-    public void setModuleCode(String moduleCode) {
-        this.moduleCode = moduleCode;
+    private String trimStart(String string, String... prefixes) {
+        if (StringUtils.isBlank(string)) {
+            return string;
+        }
+
+        if (StringUtils.startsWithAny(string, prefixes)) {
+            String prefix = Arrays.stream(prefixes)
+                                  .filter(prefixToRemove -> StringUtils.startsWith(string, prefixToRemove))
+                                  .findFirst()
+                                  .orElse(null);
+            if (StringUtils.isNotBlank(prefix)) {
+                return trimStart(StringUtils.removeStart(string, prefix), prefixes);
+            }
+        }
+        return string;
     }
 
-    void deploymentOfModule(String moduleCode) throws BusinessException {
-        String basePath = paramBeanFactory.getInstance().getProperty("providers.rootDir", "./meveodata/");
-        String wildfyPath = basePath.replaceAll("/meveodata", "");
+    private String trimEnd(String string, String... suffixes) {
+        if (StringUtils.isBlank(string)) {
+            return string;
+        }
 
-        String earFilePath = wildfyPath + "/standalone/deployments/meveo.ear";
-        String outputPath = wildfyPath + "/standalone/databackup/meveo.ear";
-        String tempfolderPath = wildfyPath + "/standalone/databackup";
+        if (StringUtils.endsWithAny(string, suffixes)) {
+            String suffix = Arrays.stream(suffixes)
+                                  .filter(suffixToRemove -> StringUtils.endsWith(string, suffixToRemove))
+                                  .findFirst()
+                                  .orElse(null);
+            if (StringUtils.isNotBlank(suffix)) {
+                return trimEnd(StringUtils.removeEnd(string, suffix), suffixes);
+            }
+        }
+        return string;
+    }
 
-        String lineSeparator = System.lineSeparator();
-        String warFilePath = basePath + "/default/git/meveomodule/facets/mavenee/target/meveomodule.war";
-        String scriptPath = basePath + "/default/git/meveomodule/facets/mavenee/moduledeployment.sh";
-        String xmlContent = lineSeparator +
-                "<module id=\"WAR.meveo.meveomodule\"><web><web-uri>meveomodule.war</web-uri> " +
-                "<context-root>/meveomodule</context-root> </web></module>" +
-                lineSeparator + "</application>";
-        File tempfolder = new File(tempfolderPath);
-        tempfolder.mkdir();
-        File shellscriptfile = new File(scriptPath.replaceAll("meveomodule", moduleCode));
-        shellscriptfile.setExecutable(true, false);
-        prepareMeveoEarFile(moduleCode, earFilePath, warFilePath.replaceAll("meveomodule", moduleCode),
-                xmlContent.replaceAll("meveomodule", moduleCode), outputPath);
+    private String normalizeDirectory(String directoryPath) {
+        if (StringUtils.isBlank(directoryPath)) {
+            throw new RuntimeException("Directory path must not be empty.");
+        }
+        String directory = StringUtils.trim(directoryPath);
+        directory = trimStart(directory, PATH_SEPARATORS);
+        directory = trimEnd(directory, PATH_SEPARATORS);
+        return directory;
+    }
+
+    private String buildMavenEEPath(String meveoDataPath, String providerCode) {
+        return String.join(File.separator, meveoDataPath, providerCode, "git", "facets", "mavenee");
+    }
+
+    private String buildWarPath(String meveoDataPath, String providerCode) {
+        return String.join(File.separator, buildMavenEEPath(meveoDataPath, providerCode), "target",
+                moduleCode + ".war");
+    }
+
+    private String buildDeploymentScriptPath(String meveoDataPath, String providerCode) {
+        return String.join(File.separator, buildMavenEEPath(meveoDataPath, providerCode), "moduledeployment.sh");
+    }
+
+    private String buildXmlContent() {
+        return String.join(LINE_SEPARATOR, LINE_SEPARATOR,
+                "  <module id=\"war.meveo." + moduleCode + "\">",
+                "    <web>",
+                "      <web-uri>" + moduleCode + ".war</web-uri>",
+                "      <context-root>/" + moduleCode + "</context-root>",
+                "    </web>",
+                "  </module>",
+                "</application>");
+    }
+
+    private void checkDirectoryPermissions(File directory){
+        String directoryPath = directory.getPath();
+        if (!directory.exists() || !directory.isDirectory()) {
+            throw new RuntimeException("Directory " + directoryPath + "does not exist");
+        }
+        if (!directory.canRead()) {
+            boolean directoryReadable = directory.setReadable(true, false);
+            if (!directoryReadable) {
+                throw new RuntimeException("Failed to set directory: " + directoryPath + " to be readable.");
+            }
+        }
+
+        if (!directory.canWrite()) {
+            boolean directoryWritable = directory.setWritable(true, false);
+            if (!directoryWritable) {
+                throw new RuntimeException("Failed to set temp folder: " + directoryPath + " to be writable.");
+            }
+        }
+    }
+
+    private void initializeWildflyDirectory(String wildflyDirectoryPath) throws BusinessException {
+        File wildflyDirectory = new File(wildflyDirectoryPath);
+        checkDirectoryPermissions(wildflyDirectory);
+    }
+
+    private void initializeTempFolder(String tempFolderPath) throws BusinessException {
+        File tempFolder = new File(tempFolderPath);
+        if (!tempFolder.exists() || !tempFolder.isDirectory()) {
+            boolean tempFolderCreated = tempFolder.mkdirs();
+            if (!tempFolderCreated) {
+                throw new BusinessException("Failed to create temp folder: " + tempFolderPath);
+            }
+        }
+        checkDirectoryPermissions(tempFolder);
+    }
+
+    private void deploymentOfModule(String moduleCode) throws BusinessException {
+        String providerCode = normalizeDirectory(config.getProperty("provider.rootDir", "default"));
+        String meveoDataPath = config.getProperty("providers.rootDir", "./meveodata");
+        meveoDataPath = trimEnd(meveoDataPath, PATH_SEPARATORS);
+        LOG.info("Meveo data path: {}", meveoDataPath);
+
+        String wildflyPath = StringUtils.removeEnd(meveoDataPath, "meveodata");
+        wildflyPath = trimEnd(wildflyPath, PATH_SEPARATORS);
+        LOG.info("Wildfly path: {}", wildflyPath);
+        initializeWildflyDirectory(wildflyPath);
+
+        String earFilePath = String.join(File.separator, wildflyPath, "standalone", "deployments", "meveo.ear");
+        LOG.info("Current EAR file path: {}", earFilePath);
+        String outputPath = wildflyPath + "/standalone/databackup/meveo.ear";
+        LOG.info("Updated EAR file path: {}", outputPath);
+
+        String tempFolderPath = wildflyPath + "/standalone/databackup";
+        LOG.info("Temp folder path: {}", tempFolderPath);
+        initializeTempFolder(tempFolderPath);
+
+        String deploymentScriptPath = buildDeploymentScriptPath(meveoDataPath, providerCode);
+        File deploymentScript = new File(deploymentScriptPath);
+        deploymentScript.setExecutable(true, false);
+        prepareMeveoEarFile(moduleCode, earFilePath, buildWarPath(meveoDataPath, providerCode), buildXmlContent(),
+                outputPath);
 
         try {
-            String actualScriptPath = scriptPath.replaceAll("meveomodule", moduleCode);
-            File scriptDirectory = new File(actualScriptPath).getParentFile();
-            Process process = Runtime.getRuntime().exec(actualScriptPath, null, scriptDirectory);
-            LOG.info("RUNNING SCRIPT: {}", actualScriptPath);
+            File scriptDirectory = new File(deploymentScriptPath).getParentFile();
+            Process process = Runtime.getRuntime().exec(deploymentScriptPath, null, scriptDirectory);
+            LOG.info("RUNNING SCRIPT: {}", deploymentScriptPath);
             int exitCode = process.waitFor();
             LOG.info("SCRIPT EXIT CODE: {}", exitCode);
         } catch (IOException | InterruptedException e) {
@@ -66,7 +182,7 @@ public class DeploymentJavaEnterpriseApplication extends Script {
         }
     }
 
-    void prepareMeveoEarFile(String moduleCode, String earFilePath, String warFilePath, String xmlContent,
+    private void prepareMeveoEarFile(String moduleCode, String earFilePath, String warFilePath, String xmlContent,
             String outputPath) throws BusinessException {
 
         try {
