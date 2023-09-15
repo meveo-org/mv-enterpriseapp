@@ -47,7 +47,7 @@ public class DeploymentJavaEnterpriseApplication extends Script {
     }
 
     private String buildMavenPath(String dataPath, String providerCode) {
-        return String.join(File.separator, dataPath, providerCode, "git", "facets", "mavenee");
+        return String.join(File.separator, dataPath, providerCode, "git", moduleCode, "facets", "mavenee");
     }
 
     private String buildXmlContent() {
