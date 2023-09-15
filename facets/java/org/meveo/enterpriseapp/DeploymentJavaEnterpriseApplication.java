@@ -102,8 +102,9 @@ public class DeploymentJavaEnterpriseApplication extends Script {
     private void deploymentOfModule(String moduleCode) throws BusinessException {
         String providerCode = normalizeDirectory(config.getProperty("provider.rootDir", "default"));
         String meveoDataPath = config.getProperty("providers.rootDir", "./meveodata");
+        meveoDataPath = (new File(meveoDataPath)).getAbsolutePath();
         meveoDataPath = StringUtils.stripEnd(meveoDataPath, PATH_SEPARATORS);
-        meveoDataPath = StringUtils.stripEnd(meveoDataPath, "\\.");
+        meveoDataPath = StringUtils.stripEnd(meveoDataPath, ".");
         LOG.info("Meveo data path: {}", meveoDataPath);
 
         String wildflyPath = StringUtils.removeEnd(meveoDataPath, "meveodata");
