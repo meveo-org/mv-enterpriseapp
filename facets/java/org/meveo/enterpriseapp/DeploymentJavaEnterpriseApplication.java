@@ -103,13 +103,13 @@ public class DeploymentJavaEnterpriseApplication extends Script {
         String providerCode = normalizeDirectory(config.getProperty("provider.rootDir", "default"));
         String meveoDataPath = config.getProperty("providers.rootDir", "./meveodata");
         meveoDataPath = StringUtils.stripEnd(meveoDataPath, PATH_SEPARATORS);
-        meveoDataPath = StringUtils.stripEnd(meveoDataPath, ".");
+        meveoDataPath = StringUtils.stripEnd(meveoDataPath, "\\.");
         LOG.info("Meveo data path: {}", meveoDataPath);
 
         String wildflyPath = StringUtils.removeEnd(meveoDataPath, "meveodata");
         wildflyPath = StringUtils.stripEnd(wildflyPath, PATH_SEPARATORS);
         wildflyPath = StringUtils.stripEnd(wildflyPath, ".");
-        LOG.info("wildfly path: {}", wildflyPath);
+        LOG.info("Wildfly path: {}", wildflyPath);
         initializeWildflyDirectory(wildflyPath);
 
         String tempFolderPath = String.join(File.separator, wildflyPath, "standalone", "databackup");
