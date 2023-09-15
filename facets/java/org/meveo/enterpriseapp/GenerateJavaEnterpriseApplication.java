@@ -86,11 +86,11 @@ public class GenerateJavaEnterpriseApplication extends Script {
 
     private static final String SET_REQUEST_RESTPONSE_METHOD = "setRequestResponse";
 
-    private static final String CUSTOME_ENDPOINT_BASE_RESOURCE = "CustomEndpointResource";
+    private static final String CUSTOM_ENDPOINT_RESOURCE = "CustomEndpointResource";
 
     private static final String CUSTOM_SCRIPT_TEMPLATE = ScriptInstance.class.getName();
 
-    private static final String CUSTOME_ENDPOINT_BASE_RESOURCE_PACKAGE = "org.meveo.base.CustomEndpointResource";
+    private static final String CUSTOM_ENDPOINT_BASE_RESOURCE_PACKAGE = "org.meveo.base.CustomEndpointResource";
 
     private static final String customEntityPackage = "org.meveo.model.customEntities";
 
@@ -417,7 +417,7 @@ public class GenerateJavaEnterpriseApplication extends Script {
         cu.getImports().add(new ImportDeclaration(new Name("javax.inject.Inject"), false, false));
         cu.getImports()
           .add(new ImportDeclaration(new Name("org.meveo.admin.exception.BusinessException"), false, false));
-        cu.getImports().add(new ImportDeclaration(new Name(CUSTOME_ENDPOINT_BASE_RESOURCE_PACKAGE), false, false));
+        cu.getImports().add(new ImportDeclaration(new Name(CUSTOM_ENDPOINT_BASE_RESOURCE_PACKAGE), false, false));
 
         if (endPointDtoClass != null) {
             StringBuilder endpointDtoclasspackage = new StringBuilder("org.meveo.").append(moduleCode)
@@ -535,7 +535,7 @@ public class GenerateJavaEnterpriseApplication extends Script {
         injectedfield.addMarkerAnnotation("Inject");
 
         NodeList<ClassOrInterfaceType> extendsList = new NodeList<>();
-        extendsList.add(new ClassOrInterfaceType().setName(new SimpleName(CUSTOME_ENDPOINT_BASE_RESOURCE)));
+        extendsList.add(new ClassOrInterfaceType().setName(new SimpleName(CUSTOM_ENDPOINT_RESOURCE)));
         clazz.setExtendedTypes(extendsList);
         return clazz;
     }
