@@ -1,7 +1,6 @@
 package org.meveo.enterpriseapp;
 
 import java.io.*;
-import java.util.Arrays;
 import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -20,10 +19,8 @@ public class DeploymentJavaEnterpriseApplication extends Script {
     private static final Logger LOG = LoggerFactory.getLogger(DeploymentJavaEnterpriseApplication.class);
     private final ParamBeanFactory paramBeanFactory = getCDIBean(ParamBeanFactory.class);
     private final ParamBean config = paramBeanFactory.getInstance();
-    private static final String WARFILE_NOTFOUND = "Module war file not found";
-    private static final String DEPLOYMENT_FAILED = "Deployment failed";
     private static final String LINE_SEPARATOR = System.lineSeparator();
-    private static final String[] PATH_SEPARATORS = { "\\.", "/", "\\"};
+    private static final String PATH_SEPARATORS = "/\\";
 
     private String moduleCode;
 
@@ -38,47 +35,14 @@ public class DeploymentJavaEnterpriseApplication extends Script {
         LOG.info("END - Deploying {} module war", moduleCode);
     }
 
-    private String trimStart(String string, String... prefixes) {
-        if (StringUtils.isBlank(string)) {
-            return string;
-        }
-
-        if (StringUtils.startsWithAny(string, prefixes)) {
-            String prefix = Arrays.stream(prefixes)
-                                  .filter(prefixToRemove -> StringUtils.startsWith(string, prefixToRemove))
-                                  .findFirst()
-                                  .orElse(null);
-            if (StringUtils.isNotBlank(prefix)) {
-                return trimStart(StringUtils.removeStart(string, prefix), prefixes);
-            }
-        }
-        return string;
-    }
-
-    private String trimEnd(String string, String... suffixes) {
-        if (StringUtils.isBlank(string)) {
-            return string;
-        }
-
-        if (StringUtils.endsWithAny(string, suffixes)) {
-            String suffix = Arrays.stream(suffixes)
-                                  .filter(suffixToRemove -> StringUtils.endsWith(string, suffixToRemove))
-                                  .findFirst()
-                                  .orElse(null);
-            if (StringUtils.isNotBlank(suffix)) {
-                return trimEnd(StringUtils.removeEnd(string, suffix), suffixes);
-            }
-        }
-        return string;
-    }
-
     private String normalizeDirectory(String directoryPath) {
         if (StringUtils.isBlank(directoryPath)) {
             throw new RuntimeException("Directory path must not be empty.");
         }
         String directory = StringUtils.trim(directoryPath);
-        directory = trimStart(directory, PATH_SEPARATORS);
-        directory = trimEnd(directory, PATH_SEPARATORS);
+        directory = StringUtils.stripStart(directory, PATH_SEPARATORS);
+        directory = StringUtils.stripEnd(directory, PATH_SEPARATORS);
+        directory = StringUtils.stripEnd(directory, ".");
         return directory;
     }
 
@@ -138,17 +102,18 @@ public class DeploymentJavaEnterpriseApplication extends Script {
     private void deploymentOfModule(String moduleCode) throws BusinessException {
         String providerCode = normalizeDirectory(config.getProperty("provider.rootDir", "default"));
         String meveoDataPath = config.getProperty("providers.rootDir", "./meveodata");
-        meveoDataPath = trimEnd(meveoDataPath, PATH_SEPARATORS);
+        meveoDataPath = StringUtils.stripEnd(meveoDataPath, PATH_SEPARATORS);
+        meveoDataPath = StringUtils.stripEnd(meveoDataPath, ".");
 
         String wildflyPath = StringUtils.removeEnd(meveoDataPath, "meveodata");
-        wildflyPath = trimEnd(wildflyPath, PATH_SEPARATORS);
+        wildflyPath = StringUtils.stripEnd(wildflyPath, PATH_SEPARATORS);
+        wildflyPath = StringUtils.stripEnd(wildflyPath, ".");
         initializeWildflyDirectory(wildflyPath);
 
         String tempFolderPath = String.join(File.separator, wildflyPath, "standalone", "databackup");
         initializeTempFolder(tempFolderPath);
 
         String mavenPath = buildMavenPath(meveoDataPath, providerCode);
-
         prepareMeveoEarFile(moduleCode, providerCode, wildflyPath, mavenPath);
 
         String deploymentScriptPath = String.join(File.separator, mavenPath, "moduledeployment.sh");
