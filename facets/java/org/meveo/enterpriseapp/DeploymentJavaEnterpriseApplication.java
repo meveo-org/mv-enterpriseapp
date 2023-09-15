@@ -131,8 +131,7 @@ public class DeploymentJavaEnterpriseApplication extends Script {
             int exitCode = process.waitFor();
             LOG.info("SCRIPT EXIT CODE: {}", exitCode);
         } catch (IOException | InterruptedException e) {
-            LOG.error("Failed to execute module deployment script.", e);
-            throw new BusinessException(DEPLOYMENT_FAILED);
+            throw new BusinessException("Failed to execute module deployment script.", e);
         }
     }
 
@@ -207,8 +206,7 @@ public class DeploymentJavaEnterpriseApplication extends Script {
             earFileInput.close();
             earFileOutput.close();
         } catch (IOException e) {
-            LOG.error("Encountered error while trying to prepare EAR file", e);
-            throw new BusinessException(DEPLOYMENT_FAILED);
+            throw new BusinessException("Encountered error while trying to prepare EAR file", e);
         }
 
     }
