@@ -10,10 +10,9 @@ import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import javax.inject.Inject;
 
 import org.meveo.admin.exception.BusinessException;
-import org.meveo.api.persistence.CrossStorageApi;
+import org.meveo.commons.utils.ParamBean;
 import org.meveo.commons.utils.ParamBeanFactory;
 import org.meveo.model.customEntities.CustomEntityTemplate;
 import org.meveo.model.customEntities.JavaEnterpriseApp;
@@ -22,23 +21,16 @@ import org.meveo.model.module.MeveoModule;
 import org.meveo.model.module.MeveoModuleItem;
 import org.meveo.model.scripts.Accessor;
 import org.meveo.model.scripts.ScriptInstance;
-import org.meveo.model.storage.Repository;
 import org.meveo.model.technicalservice.endpoint.Endpoint;
 import org.meveo.model.technicalservice.endpoint.EndpointPathParameter;
 import org.meveo.model.technicalservice.endpoint.TSParameterMapping;
-import org.meveo.persistence.CrossStorageService;
 import org.meveo.security.MeveoUser;
 import org.meveo.service.admin.impl.MeveoModuleService;
-import org.meveo.service.crm.impl.CustomFieldInstanceService;
-import org.meveo.service.crm.impl.CustomFieldTemplateService;
-import org.meveo.service.custom.CustomEntityTemplateService;
-import org.meveo.service.custom.EntityCustomActionService;
 import org.meveo.service.git.GitClient;
 import org.meveo.service.git.GitHelper;
 import org.meveo.service.git.GitRepositoryService;
 import org.meveo.service.script.Script;
 import org.meveo.service.script.ScriptInstanceService;
-import org.meveo.service.storage.RepositoryService;
 import org.meveo.service.technicalservice.endpoint.EndpointService;
 import org.meveo.util.Version;
 
@@ -51,6 +43,7 @@ import com.github.javaparser.ast.expr.*;
 import com.github.javaparser.ast.stmt.*;
 import com.github.javaparser.ast.type.ClassOrInterfaceType;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.maven.shared.invoker.DefaultInvocationRequest;
 import org.apache.maven.shared.invoker.DefaultInvoker;
 import org.apache.maven.shared.invoker.InvocationRequest;
@@ -59,87 +52,35 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class GenerateJavaEnterpriseApplication extends Script {
-
     private static final Logger LOG = LoggerFactory.getLogger(GenerateJavaEnterpriseApplication.class);
 
-    private static final String MASTER_BRANCH = "master";
-
-    private static final String LOG_SEPARATOR = "***********************************************************";
-
+    private static final String PATH_SEPARATORS = "/\\";
     private static final String MEVEO_BRANCH = "meveo";
-
-    private static final String MV_TEMPLATE_REPO = "https://github.com/masumcse1/mv-template.git";
-
+    private static final String MV_TEMPLATE_REPO = "https://github.com/meveo-org/module-war-template.git";
     private static final String CUSTOM_TEMPLATE = CustomEntityTemplate.class.getName();
-
     private static final String CUSTOM_ENDPOINT_TEMPLATE = Endpoint.class.getName();
-
-    private static final String JAVAENTERPRISE_APP_TEMPLATE = JavaEnterpriseApp.class.getSimpleName();
-
-    private static final String CDIBEANFILE = "beans.xml";
-
-    private static final String CUSTOMENDPOINTRESOURCEFILE = "CustomEndpointResource.java";
-
-    private static final String MAVENEEPOMFILE = "pom.xml";
-
-    private static final String DEPLOYMENTSCRIPTFILE = "moduledeployment.sh";
-
-    private static final String SET_REQUEST_RESTPONSE_METHOD = "setRequestResponse";
-
+    private static final String JAVA_ENTERPRISE_APP_TEMPLATE = JavaEnterpriseApp.class.getSimpleName();
+    private static final String CDI_BEAN_FILE = "beans.xml";
+    private static final String CUSTOM_ENDPOINT_RESOURCE_FILE = "CustomEndpointResource.java";
+    private static final String MAVEN_EE_POM_FILE = "pom.xml";
+    private static final String DEPLOYMENT_SCRIPT_FILE = "moduledeployment.sh";
+    private static final String SET_REQUEST_RESPONSE_METHOD = "setRequestResponse";
     private static final String CUSTOM_ENDPOINT_RESOURCE = "CustomEndpointResource";
-
-    private static final String CUSTOM_SCRIPT_TEMPLATE = ScriptInstance.class.getName();
-
     private static final String CUSTOM_ENDPOINT_BASE_RESOURCE_PACKAGE = "org.meveo.base.CustomEndpointResource";
+    private static final String MODULE_VERSION = "1.0.0";
 
-    private static final String customEntityPackage = "org.meveo.model.customEntities";
-
-    private ParamBeanFactory paramBeanFactory = getCDIBean(ParamBeanFactory.class);
-
-    private CrossStorageApi crossStorageApi = getCDIBean(CrossStorageApi.class);
-
-    private CrossStorageService crossStorageService = getCDIBean(CrossStorageService.class);
-
-    private CustomEntityTemplateService cetService = getCDIBean(CustomEntityTemplateService.class);
-
-    private CustomFieldInstanceService cfiService = getCDIBean(CustomFieldInstanceService.class);
-
-    private CustomFieldTemplateService cftService = getCDIBean(CustomFieldTemplateService.class);
-
-    private EntityCustomActionService ecaService = getCDIBean(EntityCustomActionService.class);
-
-    private GitClient gitClient = getCDIBean(GitClient.class);
-
-    private GitRepositoryService gitRepositoryService = getCDIBean(GitRepositoryService.class);
-
-    private MeveoModuleService meveoModuleService = getCDIBean(MeveoModuleService.class);
-
-    private RepositoryService repositoryService = getCDIBean(RepositoryService.class);
-
-    private ScriptInstanceService scriptInstanceService = getCDIBean(ScriptInstanceService.class);
-
-    @Inject
-    private EndpointService endpointService;
-
-    private Repository repository;
+    private final ParamBeanFactory paramBeanFactory = getCDIBean(ParamBeanFactory.class);
+    private final ParamBean config = paramBeanFactory.getInstance();
+    private final GitClient gitClient = getCDIBean(GitClient.class);
+    private final GitRepositoryService gitRepositoryService = getCDIBean(GitRepositoryService.class);
+    private final MeveoModuleService meveoModuleService = getCDIBean(MeveoModuleService.class);
+    private final ScriptInstanceService scriptInstanceService = getCDIBean(ScriptInstanceService.class);
+    private final EndpointService endpointService = getCDIBean(EndpointService.class);
 
     private String moduleCode;
 
-    private String moduleversion = "1.0.0";
-
-    public String getModuleCode() {
-        return this.moduleCode;
-    }
-
     public void setModuleCode(String moduleCode) {
         this.moduleCode = moduleCode;
-    }
-
-    public Repository getDefaultRepository() {
-        if (repository == null) {
-            repository = repositoryService.findDefaultRepository();
-        }
-        return repository;
     }
 
     @Override
@@ -162,20 +103,20 @@ public class GenerateJavaEnterpriseApplication extends Script {
             LOG.debug("entityCodes: {}", entityCodes);
 
             // SAVE COPY OF MV-TEMPLATE TO MEVEO GIT REPOSITORY
-            GitRepository enterpriseappTemplateRepo = gitRepositoryService.findByCode(JAVAENTERPRISE_APP_TEMPLATE);
-            if (enterpriseappTemplateRepo == null) {
-                LOG.debug("CREATE NEW GitRepository: {}", JAVAENTERPRISE_APP_TEMPLATE);
-                enterpriseappTemplateRepo = new GitRepository();
-                enterpriseappTemplateRepo.setCode(JAVAENTERPRISE_APP_TEMPLATE);
-                enterpriseappTemplateRepo.setDescription(JAVAENTERPRISE_APP_TEMPLATE + " Template repository");
-                enterpriseappTemplateRepo.setRemoteOrigin(MV_TEMPLATE_REPO);
-                enterpriseappTemplateRepo.setDefaultRemoteUsername("");
-                enterpriseappTemplateRepo.setDefaultRemotePassword("");
-                gitRepositoryService.create(enterpriseappTemplateRepo);
+            GitRepository enterpriseAppTemplateRepo = gitRepositoryService.findByCode(JAVA_ENTERPRISE_APP_TEMPLATE);
+            if (enterpriseAppTemplateRepo == null) {
+                LOG.debug("CREATE NEW GitRepository: {}", JAVA_ENTERPRISE_APP_TEMPLATE);
+                enterpriseAppTemplateRepo = new GitRepository();
+                enterpriseAppTemplateRepo.setCode(JAVA_ENTERPRISE_APP_TEMPLATE);
+                enterpriseAppTemplateRepo.setDescription(JAVA_ENTERPRISE_APP_TEMPLATE + " Template repository");
+                enterpriseAppTemplateRepo.setRemoteOrigin(MV_TEMPLATE_REPO);
+                enterpriseAppTemplateRepo.setDefaultRemoteUsername("");
+                enterpriseAppTemplateRepo.setDefaultRemotePassword("");
+                gitRepositoryService.create(enterpriseAppTemplateRepo);
             } else {
-                gitClient.pull(enterpriseappTemplateRepo, "", "");
+                gitClient.pull(enterpriseAppTemplateRepo, "", "");
             }
-            File enterpriseappTemplateDirectory = GitHelper.getRepositoryDir(user, enterpriseappTemplateRepo);
+            File enterpriseappTemplateDirectory = GitHelper.getRepositoryDir(user, enterpriseAppTemplateRepo);
             Path enterpriseAppTemplatePath = enterpriseappTemplateDirectory.toPath();
             LOG.debug("webappTemplate path: {}", enterpriseAppTemplatePath.toString());
 
@@ -186,7 +127,11 @@ public class GenerateJavaEnterpriseApplication extends Script {
             Path moduleEnterpriseAppPath = moduleEnterpriseAppDirectory.toPath();
             String pomFilePath = moduleEnterpriseAppDirectory.getAbsolutePath() + "/facets/maven/pom.xml";
             List<File> filesToCommit = new ArrayList<>();
-            String basePath = paramBeanFactory.getInstance().getProperty("providers.rootDir", "./meveodata/");
+            String basePath = config.getProperty("providers.rootDir", "./meveodata/");
+            basePath = (new File(basePath)).getAbsolutePath().replaceAll("/\\./", "/");
+            basePath = StringUtils.stripEnd(basePath, PATH_SEPARATORS);
+            basePath = StringUtils.stripEnd(basePath, ".");
+            LOG.info("Meveo data path: {}", basePath);
             //***************RestConfiguration file  Generation************************
 
             String pathJavaRestConfigurationFile = "facets/javaee/org/meveo/" + moduleCode + "/rest/"
@@ -203,11 +148,11 @@ public class GenerateJavaEnterpriseApplication extends Script {
             }
 
             // -----Identity entity,DTO Generation,  EndPoint Generation--------------------
-
-            List<String> endpointCodes = moduleItems.stream()
-                                                    .filter(item -> CUSTOM_ENDPOINT_TEMPLATE.equals(
-                                                            item.getItemClass()))
-                                                    .map(entity -> entity.getItemCode()).collect(Collectors.toList());
+            List<String> endpointCodes = moduleItems
+                    .stream()
+                    .filter(item -> CUSTOM_ENDPOINT_TEMPLATE.equals(item.getItemClass()))
+                    .map(MeveoModuleItem::getItemCode)
+                    .collect(Collectors.toList());
 
             String endPointDtoClass = null;
 
@@ -248,10 +193,9 @@ public class GenerateJavaEnterpriseApplication extends Script {
                 String tagToKeep = "repositories";
                 String repositoriesTagContent = copyXmlTagContent(pomFilePath, tagToKeep);
 
-                List<File> templatefiles = templateFileCopy(moduleCode, enterpriseAppTemplatePath,
-                        moduleEnterpriseAppPath, repositoriesTagContent, basePath);
-                filesToCommit.addAll(templatefiles);
-
+                List<File> templateFiles = templateFileCopy(moduleCode, enterpriseAppTemplatePath,
+                        moduleEnterpriseAppPath, repositoriesTagContent);
+                filesToCommit.addAll(templateFiles);
             }
 
             if (!filesToCommit.isEmpty()) {
@@ -376,8 +320,7 @@ public class GenerateJavaEnterpriseApplication extends Script {
      */
     String generateRestConfigurationClass(String moduleCode) {
         CompilationUnit compilationUnit = new CompilationUnit();
-        StringBuilder restconfigurationpackage = new StringBuilder("org.meveo.").append(moduleCode).append(".rest");
-        compilationUnit.setPackageDeclaration(restconfigurationpackage.toString());
+        compilationUnit.setPackageDeclaration("org.meveo." + moduleCode + ".rest");
         compilationUnit.getImports().add(new ImportDeclaration(new Name("javax.ws.rs.ApplicationPath"), false, false));
         compilationUnit.getImports().add(new ImportDeclaration(new Name("javax.ws.rs.core.Application"), false, false));
 
@@ -390,7 +333,6 @@ public class GenerateJavaEnterpriseApplication extends Script {
         classDeclaration.setExtendedTypes(extendsList);
 
         return compilationUnit.toString();
-
     }
 
     /**
@@ -511,7 +453,7 @@ public class GenerateJavaEnterpriseApplication extends Script {
             beforeTryblock.addStatement(getPathParametermethodcall);
         }
 
-        beforeTryblock.addStatement(new ExpressionStmt(new MethodCallExpr(SET_REQUEST_RESTPONSE_METHOD)));
+        beforeTryblock.addStatement(new ExpressionStmt(new MethodCallExpr(SET_REQUEST_RESPONSE_METHOD)));
         return beforeTryblock;
     }
 
@@ -621,8 +563,6 @@ public class GenerateJavaEnterpriseApplication extends Script {
      *
      * @param endPoint
      * @param assignmentVariable
-     * @param httpMethod
-     * @param path
      * @param injectedFieldName
      * @param endPointDtoClass
      * @return
@@ -790,8 +730,7 @@ public class GenerateJavaEnterpriseApplication extends Script {
         int endTagIndex = xmlContent.indexOf("</" + tagToKeep + ">", startTagIndex);
 
         if (startTagIndex != -1 && endTagIndex != -1) {
-            String desiredTagContent = xmlContent.substring(startTagIndex, endTagIndex + tagToKeep.length() + 3);
-            return desiredTagContent;
+            return xmlContent.substring(startTagIndex, endTagIndex + tagToKeep.length() + 3);
         }
         return null;
     }
@@ -800,7 +739,7 @@ public class GenerateJavaEnterpriseApplication extends Script {
      * copy files (CustomEndpointResource.java, beans.xml, pom.xml) into project directory
      */
     private List<File> templateFileCopy(String moduleCode, Path webappTemplatePath, Path moduleWebAppPath,
-            String repositoriesTagContent, String basePath) throws BusinessException {
+            String repositoriesTagContent) throws BusinessException {
         List<File> filesToCommit = new ArrayList<>();
 
         try (Stream<Path> sourceStream = Files.walk(webappTemplatePath)) {
@@ -811,30 +750,33 @@ public class GenerateJavaEnterpriseApplication extends Script {
                 Path sourcePath = sources.get(index);
                 Path destinationPath = destinations.get(index);
 
-                if (sourcePath.toString().contains(CUSTOMENDPOINTRESOURCEFILE)
-                        || sourcePath.toString().contains(CDIBEANFILE) || sourcePath.toString().contains(MAVENEEPOMFILE)
-                        || sourcePath.toString().contains(DEPLOYMENTSCRIPTFILE)) {
+                if (sourcePath.toString().contains(CUSTOM_ENDPOINT_RESOURCE_FILE)
+                        || sourcePath.toString().contains(CDI_BEAN_FILE)
+                        || sourcePath.toString().contains(MAVEN_EE_POM_FILE)
+                        || sourcePath.toString().contains(DEPLOYMENT_SCRIPT_FILE)) {
 
                     try {
                         File outputFile = new File(destinationPath.toString());
                         File inputfile = new File(sourcePath.toString());
-                        String inputcontent = FileUtils.readFileToString(inputfile, StandardCharsets.UTF_8.name());
+                        String inputContent = FileUtils.readFileToString(inputfile, StandardCharsets.UTF_8.name());
 
-                        if (sourcePath.toString().contains(MAVENEEPOMFILE)) {
-                            String updatedinputcontent = inputcontent.replace("moduleartifactId", moduleCode)
-                                                                     .replace("moduleversion", moduleversion)
-                                                                     .replace("meveo.base.version", Version.appVersion)
-                                                                     .replace("repositorylist", repositoriesTagContent);
-                            FileUtils.write(outputFile, updatedinputcontent, StandardCharsets.UTF_8);
+                        if (sourcePath.toString().contains(MAVEN_EE_POM_FILE)) {
+                            String outputContent = inputContent
+                                    .replace("__MODULE_ARTIFACT_ID__", moduleCode)
+                                    .replace("__MODULE_VERSION__", MODULE_VERSION)
+                                    .replace("__MEVEO_VERSION__", Version.appVersion)
+                                    .replace("<!--REPOSITORY_LIST-->", repositoriesTagContent);
+                            FileUtils.write(outputFile, outputContent, StandardCharsets.UTF_8);
                         } else {
-                            FileUtils.write(outputFile, inputcontent, StandardCharsets.UTF_8);
+                            FileUtils.write(outputFile, inputContent, StandardCharsets.UTF_8);
                         }
 
-                        if (sourcePath.toString().contains(DEPLOYMENTSCRIPTFILE)) {
-                            String wildfyPath = basePath.replaceAll("/meveodata", "");
-                            String updatedinputcontent = inputcontent.replace("modulecode", moduleCode)
-                                                                     .replace("wildfypath", wildfyPath);
-                            FileUtils.write(outputFile, updatedinputcontent, StandardCharsets.UTF_8);
+                        if (sourcePath.toString().contains(DEPLOYMENT_SCRIPT_FILE)) {
+                            String wildflyPath = System.getProperty("jboss.home.dir");
+                            String outputContent = inputContent
+                                    .replace("__MODULE_CODE__", moduleCode)
+                                    .replace("__WILDFLY_PATH__", wildflyPath);
+                            FileUtils.write(outputFile, outputContent, StandardCharsets.UTF_8);
                         }
 
                         filesToCommit.add(outputFile);

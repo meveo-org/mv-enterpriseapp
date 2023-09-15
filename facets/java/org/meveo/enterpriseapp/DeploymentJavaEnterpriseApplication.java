@@ -17,10 +17,12 @@ import org.slf4j.LoggerFactory;
 
 public class DeploymentJavaEnterpriseApplication extends Script {
     private static final Logger LOG = LoggerFactory.getLogger(DeploymentJavaEnterpriseApplication.class);
-    private final ParamBeanFactory paramBeanFactory = getCDIBean(ParamBeanFactory.class);
-    private final ParamBean config = paramBeanFactory.getInstance();
+
     private static final String LINE_SEPARATOR = System.lineSeparator();
     private static final String PATH_SEPARATORS = "/\\";
+
+    private final ParamBeanFactory paramBeanFactory = getCDIBean(ParamBeanFactory.class);
+    private final ParamBean config = paramBeanFactory.getInstance();
 
     private String moduleCode;
 
@@ -81,10 +83,15 @@ public class DeploymentJavaEnterpriseApplication extends Script {
         }
     }
 
-    private void initializeWildflyDirectory(String wildflyDirectoryPath) throws BusinessException {
-        File wildflyDirectory = new File(wildflyDirectoryPath);
+    private String initializeWildflyDirectory() throws BusinessException {
+        String wildflyPath = System.getProperty("jboss.home.dir");
+        wildflyPath = StringUtils.stripEnd(wildflyPath, PATH_SEPARATORS);
+        wildflyPath = StringUtils.stripEnd(wildflyPath, ".");
+        LOG.info("Wildfly path: {}", wildflyPath);
+        File wildflyDirectory = new File(wildflyPath);
         checkDirectoryPermissions(wildflyDirectory);
         LOG.info("Successfully initialized wildfly directory: {}", wildflyDirectory.getAbsolutePath());
+        return wildflyDirectory.getAbsolutePath();
     }
 
     private void initializeTempFolder(String tempFolderPath) throws BusinessException {
@@ -102,16 +109,12 @@ public class DeploymentJavaEnterpriseApplication extends Script {
     private void deploymentOfModule(String moduleCode) throws BusinessException {
         String providerCode = normalizeDirectory(config.getProperty("provider.rootDir", "default"));
         String meveoDataPath = config.getProperty("providers.rootDir", "./meveodata");
-        meveoDataPath = (new File(meveoDataPath)).getAbsolutePath().replaceAll("\\./", "");
+        meveoDataPath = (new File(meveoDataPath)).getAbsolutePath().replaceAll("/\\./", "/");
         meveoDataPath = StringUtils.stripEnd(meveoDataPath, PATH_SEPARATORS);
         meveoDataPath = StringUtils.stripEnd(meveoDataPath, ".");
         LOG.info("Meveo data path: {}", meveoDataPath);
 
-        String wildflyPath = System.getProperty("jboss.home.dir");
-        wildflyPath = StringUtils.stripEnd(wildflyPath, PATH_SEPARATORS);
-        wildflyPath = StringUtils.stripEnd(wildflyPath, ".");
-        LOG.info("Wildfly path: {}", wildflyPath);
-        initializeWildflyDirectory(wildflyPath);
+        String wildflyPath = initializeWildflyDirectory();
 
         String tempFolderPath = String.join(File.separator, wildflyPath, "standalone", "databackup");
         initializeTempFolder(tempFolderPath);
