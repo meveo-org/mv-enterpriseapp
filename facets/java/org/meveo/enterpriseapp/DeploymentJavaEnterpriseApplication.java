@@ -107,7 +107,7 @@ public class DeploymentJavaEnterpriseApplication extends Script {
         meveoDataPath = StringUtils.stripEnd(meveoDataPath, ".");
         LOG.info("Meveo data path: {}", meveoDataPath);
 
-        String wildflyPath = StringUtils.removeEnd(meveoDataPath, "meveodata");
+        String wildflyPath = System.getProperty("jboss.home.dir");
         wildflyPath = StringUtils.stripEnd(wildflyPath, PATH_SEPARATORS);
         wildflyPath = StringUtils.stripEnd(wildflyPath, ".");
         LOG.info("Wildfly path: {}", wildflyPath);
