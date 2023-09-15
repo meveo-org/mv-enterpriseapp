@@ -4,13 +4,7 @@
     "name" : "moduleCode",
     "type" : "String"
   } ],
-  "outputs" : [ {
-    "name" : "moduleCode",
-    "type" : "String"
-  }, {
-    "name" : "defaultRepository",
-    "type" : "Repository"
-  } ],
+  "outputs" : [ ],
   "generateOutputs" : false,
   "type" : "JAVA",
   "transactionType" : "SAME",
