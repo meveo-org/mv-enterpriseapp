@@ -42,7 +42,7 @@ public class DeploymentJavaEnterpriseApplication extends Script {
         String directory = StringUtils.trim(directoryPath);
         directory = StringUtils.stripStart(directory, PATH_SEPARATORS);
         directory = StringUtils.stripEnd(directory, PATH_SEPARATORS);
-        directory = StringUtils.stripEnd(directory, "\\.");
+        directory = StringUtils.stripEnd(directory, ".");
         return directory;
     }
 
@@ -103,12 +103,14 @@ public class DeploymentJavaEnterpriseApplication extends Script {
         String providerCode = normalizeDirectory(config.getProperty("provider.rootDir", "default"));
         String meveoDataPath = config.getProperty("providers.rootDir", "./meveodata");
         meveoDataPath = StringUtils.stripEnd(meveoDataPath, PATH_SEPARATORS);
-        meveoDataPath = StringUtils.stripEnd(meveoDataPath, "\\.");
+        meveoDataPath = StringUtils.stripEnd(meveoDataPath, ".");
+        LOG.info("Meveo data path: {}", meveoDataPath);
 
         String wildflyPath = StringUtils.removeEnd(meveoDataPath, "meveodata");
         wildflyPath = StringUtils.stripEnd(wildflyPath, PATH_SEPARATORS);
-        wildflyPath = StringUtils.stripEnd(wildflyPath, "\\.");
+        wildflyPath = StringUtils.stripEnd(wildflyPath, ".");
         initializeWildflyDirectory(wildflyPath);
+        LOG.info("wildfly path: {}", meveoDataPath);
 
         String tempFolderPath = String.join(File.separator, wildflyPath, "standalone", "databackup");
         initializeTempFolder(tempFolderPath);
