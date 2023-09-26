@@ -2,6 +2,7 @@
   "code" : "JavaEnterpriseApp",
   "name" : "JavaEnterpriseApp",
   "description" : "JavaEnterpriseApp",
+  "customEntityCategoryCode" : "ModuleDeployment",
   "availableStorages" : [ "SQL" ],
   "sqlStorageConfiguration" : {
     "storeAsTable" : true
