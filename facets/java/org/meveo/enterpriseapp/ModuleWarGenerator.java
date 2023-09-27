@@ -142,15 +142,17 @@ public class ModuleWarGenerator extends Script {
             basePath = StringUtils.stripEnd(basePath, ".");
             LOG.info("Meveo data path: {}", basePath);
 
-            label("RESTConfiguration file  Generation");
-            String restConfigurationPath = "facets/javaee/org/meveo/" + moduleCode + "/rest/"
-                    + capitalize(moduleCode) + "RestConfig" + ".java";
+            String normalizedCode = normalize(moduleCode);
+
+            label("RESTConfiguration file generation");
+            String restConfigurationPath = "facets/javaee/org/meveo/" + normalizedCode + "/rest/"
+                    + capitalize(normalizedCode) + "RestConfig" + ".java";
             LOG.info("Rest configuration file: {}", restConfigurationPath);
 
             try {
 
                 File restConfigfile = new File(generatedFilesDirectory, restConfigurationPath);
-                String restConfigurationFileContent = generateRESTConfigurationClass(moduleCode);
+                String restConfigurationFileContent = generateRESTConfigurationClass(normalizedCode);
                 FileUtils.write(restConfigfile, restConfigurationFileContent, StandardCharsets.UTF_8);
                 LOG.info("Successfully created rest configuration file: {}", restConfigfile.getPath());
                 filesToCommit.add(restConfigfile);
@@ -228,6 +230,19 @@ public class ModuleWarGenerator extends Script {
         }
 
         label("ModuleWarGenerator.execute() - DONE");
+    }
+
+    private String normalize(String moduleCode) {
+        String[] words = moduleCode.trim().split("\\W+");
+        StringBuilder normalizedCode = new StringBuilder();
+
+        for (String word : words) {
+            if (!word.isEmpty()) {
+                normalizedCode.append(Character.toUpperCase(word.charAt(0)))
+                              .append(word.substring(1).toLowerCase());
+            }
+        }
+        return normalizedCode.toString();
     }
 
     /*
