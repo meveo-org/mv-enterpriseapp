@@ -359,7 +359,7 @@ public class ModuleWarGenerator extends Script {
         String className = moduleCode + "RestConfig";
         ClassOrInterfaceDeclaration classDeclaration = compilationUnit.addClass(className)
                                                                       .setPublic(true);
-        classDeclaration.addSingleMemberAnnotation("ApplicationPath", new StringLiteralExpr("api"));
+        classDeclaration.addSingleMemberAnnotation("ApplicationPath", new StringLiteralExpr("rest"));
 
         NodeList<ClassOrInterfaceType> extendsList = new NodeList<>();
         extendsList.add(new ClassOrInterfaceType().setName(new SimpleName("Application")));
