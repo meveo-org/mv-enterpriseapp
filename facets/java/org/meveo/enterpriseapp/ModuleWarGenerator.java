@@ -504,7 +504,7 @@ public class ModuleWarGenerator extends Script {
      */
     private ClassOrInterfaceDeclaration generateRESTClass(CompilationUnit cu, String endpointCode,
             String httpBasePath, String serviceCode, String injectedFieldName) {
-        ClassOrInterfaceDeclaration clazz = cu.addClass(toPascalCase(endpointCode, Modifier.Keyword.PUBLIC);
+        ClassOrInterfaceDeclaration clazz = cu.addClass(endpointCode, Modifier.Keyword.PUBLIC);
         clazz.addSingleMemberAnnotation("Path", new StringLiteralExpr(httpBasePath));
         clazz.addMarkerAnnotation("RequestScoped");
         var injectedfield = clazz.addField(serviceCode, injectedFieldName, Modifier.Keyword.PRIVATE);
