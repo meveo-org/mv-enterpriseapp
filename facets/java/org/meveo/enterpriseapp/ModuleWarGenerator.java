@@ -256,15 +256,18 @@ public class ModuleWarGenerator extends Script {
         }
 
         LOG.info("Maven Home path: {}", mvnHome);
+        runMaven(mavenEEDirectory, mvnHome, "clean", "package");
+    }
 
+    private void runMaven(String mavenEEDirectory, String mvnHome, String... targets) throws BusinessException {
         InvocationRequest request = new DefaultInvocationRequest();
         request.setBaseDirectory(new File(mavenEEDirectory));
-        request.setGoals(Collections.singletonList("package"));
+        request.setGoals(Arrays.asList(targets));
 
         try {
             DefaultInvoker invoker = new DefaultInvoker();
             invoker.setMavenHome(new File(mvnHome));
-            label("Executing maven package using pom.xml in: {}", mavenEEDirectory);
+            label("Executing maven {} using pom.xml in: {}", targets, mavenEEDirectory);
             invoker.execute(request);
         } catch (MavenInvocationException e) {
             LOG.error("Failed to mvn package for mavenee pom.xml", e);
