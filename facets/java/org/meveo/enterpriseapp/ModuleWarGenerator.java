@@ -109,20 +109,31 @@ public class ModuleWarGenerator extends Script {
             LOG.info("Entity codes: {}", entityCodes);
 
             // SAVE COPY OF MV-TEMPLATE TO MEVEO GIT REPOSITORY
-            GitRepository enterpriseAppTemplateRepo = gitRepositoryService.findByCode(JAVA_ENTERPRISE_APP_TEMPLATE);
-            gitClient.pull(enterpriseAppTemplateRepo, "", "");
+            GitRepository templateRepository = gitRepositoryService.findByCode(JAVA_ENTERPRISE_APP_TEMPLATE);
+            if (templateRepository == null) {
+                LOG.info("Create module template repository: {}", JAVA_ENTERPRISE_APP_TEMPLATE);
+                templateRepository = new GitRepository();
+                templateRepository.setCode(JAVA_ENTERPRISE_APP_TEMPLATE);
+                templateRepository.setDescription(JAVA_ENTERPRISE_APP_TEMPLATE + " Template repository");
+                templateRepository.setRemoteOrigin(MV_TEMPLATE_REPO);
+                templateRepository.setDefaultRemoteUsername("");
+                templateRepository.setDefaultRemotePassword("");
+                gitRepositoryService.create(templateRepository);
+            } else {
+                gitClient.pull(templateRepository, "", "");
+                LOG.info("Successfully updated module template repository: {}", JAVA_ENTERPRISE_APP_TEMPLATE);
+            }
+            File templateDirectory = GitHelper.getRepositoryDir(user, templateRepository);
+            Path templatePath = templateDirectory.toPath();
+            LOG.info("Module template path: {}", templatePath);
 
-            File enterpriseAppTemplateDirectory = GitHelper.getRepositoryDir(user, enterpriseAppTemplateRepo);
-            Path enterpriseAppTemplatePath = enterpriseAppTemplateDirectory.toPath();
-            LOG.info("App template path: {}", enterpriseAppTemplatePath.toString());
-
-            label("Generate module");
-            GitRepository moduleEnterpriseAppRepo = gitRepositoryService.findByCode(moduleCode);
-            gitClient.checkout(moduleEnterpriseAppRepo, MEVEO_BRANCH, true);
-            File moduleEnterpriseAppDirectory = GitHelper.getRepositoryDir(user, moduleEnterpriseAppRepo);
-            Path moduleEnterpriseAppPath = moduleEnterpriseAppDirectory.toPath();
-            String pomFilePath = moduleEnterpriseAppDirectory.getAbsolutePath() + "/facets/maven/pom.xml";
-            LOG.info("POM file: {}", pomFilePath);
+            /// Generate module
+            GitRepository generatedFilesRepo = gitRepositoryService.findByCode(moduleCode);
+            gitClient.checkout(generatedFilesRepo, MEVEO_BRANCH, true);
+            File generatedFilesDirectory = GitHelper.getRepositoryDir(user, generatedFilesRepo);
+            Path generatedFilesPath = generatedFilesDirectory.toPath();
+            String pomFilePath = generatedFilesDirectory.getAbsolutePath() + "/facets/maven/pom.xml";
+            LOG.info("Added POM file: {}", pomFilePath);
 
             List<File> filesToCommit = new ArrayList<>();
             String basePath = config.getProperty("providers.rootDir", "./meveodata/");
@@ -138,7 +149,7 @@ public class ModuleWarGenerator extends Script {
 
             try {
 
-                File restConfigfile = new File(moduleEnterpriseAppDirectory, restConfigurationPath);
+                File restConfigfile = new File(generatedFilesDirectory, restConfigurationPath);
                 String restConfigurationFileContent = generateRESTConfigurationClass(moduleCode);
                 FileUtils.write(restConfigfile, restConfigurationFileContent, StandardCharsets.UTF_8);
                 LOG.info("Successfully created rest configuration file: {}", restConfigfile.getPath());
@@ -169,7 +180,7 @@ public class ModuleWarGenerator extends Script {
                                 + "/dto/" + endpointDTOClass + ".java";
                         LOG.info("Generating endpoint DTO class: {}", dtoFilePath);
                         try {
-                            File dtoFile = new File(moduleEnterpriseAppDirectory, dtoFilePath);
+                            File dtoFile = new File(generatedFilesDirectory, dtoFilePath);
                             String dtoContent = generateEndpointDTO(moduleCode, endpoint, endpointDTOClass);
                             FileUtils.write(dtoFile, dtoContent, StandardCharsets.UTF_8);
                             LOG.info("Successfully created endpoint DTO: {}", dtoFile.getPath());
@@ -187,7 +198,7 @@ public class ModuleWarGenerator extends Script {
                 LOG.info("Generating endpoint class: {}", endpointClassPath);
 
                 try {
-                    File endpointFile = new File(moduleEnterpriseAppDirectory, endpointClassPath);
+                    File endpointFile = new File(generatedFilesDirectory, endpointClassPath);
                     String endpointContent = generateEndpoint(moduleCode, endpoint, endpointDTOClass);
                     FileUtils.write(endpointFile, endpointContent, StandardCharsets.UTF_8);
                     LOG.info("Successfully created endpoint class: {}", endpointFile.getPath());
@@ -199,18 +210,18 @@ public class ModuleWarGenerator extends Script {
                 String tagToKeep = "repositories";
                 String repositoriesTagContent = copyXmlTagContent(pomFilePath, tagToKeep);
 
-                List<File> templateFiles = templateFileCopy(moduleCode, enterpriseAppTemplatePath,
-                        moduleEnterpriseAppPath, repositoriesTagContent);
+                List<File> templateFiles = templateFileCopy(moduleCode, templatePath,
+                        generatedFilesPath, repositoriesTagContent);
                 LOG.info("Successfully copied the following files from the template: {}",
                         templateFiles.stream().map(File::getPath).collect(Collectors.toList()));
                 filesToCommit.addAll(templateFiles);
             }
 
             if (!filesToCommit.isEmpty()) {
-                gitClient.commitFiles(moduleEnterpriseAppRepo, filesToCommit, "DTO & Endpoint generation.");
+                gitClient.commitFiles(generatedFilesRepo, filesToCommit, "DTO & Endpoint generation.");
             }
 
-            generateWAR(moduleEnterpriseAppDirectory.getAbsolutePath());
+            generateWAR(generatedFilesDirectory.getAbsolutePath());
 
         } else {
             LOG.warn("Module with code: {} does not exist.", moduleCode);
