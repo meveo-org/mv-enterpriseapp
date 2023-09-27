@@ -105,7 +105,7 @@ public class ModuleWarGenerator extends Script {
             Set<MeveoModuleItem> moduleItems = module.getModuleItems();
 
             List<String> entityCodes = moduleItems.stream().filter(item -> CUSTOM_TEMPLATE.equals(item.getItemClass()))
-                                                  .map(entity -> entity.getItemCode()).collect(Collectors.toList());
+                                                  .map(MeveoModuleItem::getItemCode).collect(Collectors.toList());
             LOG.info("Entity codes: {}", entityCodes);
 
             // SAVE COPY OF MV-TEMPLATE TO MEVEO GIT REPOSITORY
@@ -142,11 +142,11 @@ public class ModuleWarGenerator extends Script {
             basePath = StringUtils.stripEnd(basePath, ".");
             LOG.info("Meveo data path: {}", basePath);
 
-            String normalizedCode = normalize(moduleCode);
+            String normalizedCode = toPascalCase(moduleCode);
 
             label("RESTConfiguration file generation");
             String restConfigurationPath = "facets/javaee/org/meveo/" + normalizedCode + "/rest/"
-                    + capitalize(normalizedCode) + "RestConfig" + ".java";
+                    + normalizedCode + "RestConfig" + ".java";
             LOG.info("Rest configuration file: {}", restConfigurationPath);
 
             try {
@@ -178,12 +178,12 @@ public class ModuleWarGenerator extends Script {
                             endpoint.getMethod().getLabel().equalsIgnoreCase("PUT")) {
 
                         endpointDTOClass = endpoint.getCode() + "DTO";
-                        String dtoFilePath = "facets/javaee/org/meveo/" + moduleCode
+                        String dtoFilePath = "facets/javaee/org/meveo/" + normalizedCode
                                 + "/dto/" + endpointDTOClass + ".java";
                         LOG.info("Generating endpoint DTO class: {}", dtoFilePath);
                         try {
                             File dtoFile = new File(generatedFilesDirectory, dtoFilePath);
-                            String dtoContent = generateEndpointDTO(moduleCode, endpoint, endpointDTOClass);
+                            String dtoContent = generateEndpointDTO(normalizedCode, endpoint, endpointDTOClass);
                             FileUtils.write(dtoFile, dtoContent, StandardCharsets.UTF_8);
                             LOG.info("Successfully created endpoint DTO: {}", dtoFile.getPath());
                             filesToCommit.add(dtoFile);
@@ -195,13 +195,13 @@ public class ModuleWarGenerator extends Script {
                 }
 
                 label("Endpoint Class Generation");
-                String endpointClassPath = "facets/javaee/org/meveo/" + moduleCode
+                String endpointClassPath = "facets/javaee/org/meveo/" + normalizedCode
                         + "/resource/" + endpoint.getCode() + ".java";
                 LOG.info("Generating endpoint class: {}", endpointClassPath);
 
                 try {
                     File endpointFile = new File(generatedFilesDirectory, endpointClassPath);
-                    String endpointContent = generateEndpoint(moduleCode, endpoint, endpointDTOClass);
+                    String endpointContent = generateEndpoint(normalizedCode, endpoint, endpointDTOClass);
                     FileUtils.write(endpointFile, endpointContent, StandardCharsets.UTF_8);
                     LOG.info("Successfully created endpoint class: {}", endpointFile.getPath());
                     filesToCommit.add(endpointFile);
@@ -230,19 +230,6 @@ public class ModuleWarGenerator extends Script {
         }
 
         label("ModuleWarGenerator.execute() - DONE");
-    }
-
-    private String normalize(String moduleCode) {
-        String[] words = moduleCode.trim().split("\\W+");
-        StringBuilder normalizedCode = new StringBuilder();
-
-        for (String word : words) {
-            if (!word.isEmpty()) {
-                normalizedCode.append(Character.toUpperCase(word.charAt(0)))
-                              .append(word.substring(1).toLowerCase());
-            }
-        }
-        return normalizedCode.toString();
     }
 
     /*
@@ -370,7 +357,7 @@ public class ModuleWarGenerator extends Script {
         compilationUnit.getImports().add(new ImportDeclaration(new Name("javax.ws.rs.ApplicationPath"), false, false));
         compilationUnit.getImports().add(new ImportDeclaration(new Name("javax.ws.rs.core.Application"), false, false));
 
-        String className = capitalize(moduleCode) + "RestConfig";
+        String className = moduleCode + "RestConfig";
         ClassOrInterfaceDeclaration classDeclaration = compilationUnit.addClass(className)
                                                                       .setPublic(true);
         classDeclaration.addSingleMemberAnnotation("ApplicationPath", new StringLiteralExpr("api"));
@@ -398,8 +385,9 @@ public class ModuleWarGenerator extends Script {
         String serviceCode = getServiceCode(endpoint.getService().getCode());
 
         CompilationUnit cu = new CompilationUnit();
-        StringBuilder resourcePackage = new StringBuilder("org.meveo.").append(moduleCode).append(".resource");
-        cu.setPackageDeclaration(resourcePackage.toString());
+        String modulePackage = "org.meveo." + moduleCode;
+        String resourcePackage = modulePackage + ".resource";
+        cu.setPackageDeclaration(resourcePackage);
         cu.getImports().add(new ImportDeclaration(new Name("java.time"), false, true));
         cu.getImports().add(new ImportDeclaration(new Name("java.util"), false, true));
         cu.getImports().add(new ImportDeclaration(new Name("javax.ws.rs"), false, true));
@@ -411,14 +399,13 @@ public class ModuleWarGenerator extends Script {
         cu.getImports().add(new ImportDeclaration(new Name(CUSTOM_ENDPOINT_BASE_RESOURCE_PACKAGE), false, false));
 
         if (endpointDTOClass != null) {
-            StringBuilder endpointDTOclasspackage = new StringBuilder("org.meveo.").append(moduleCode)
-                                                                                   .append(".dto." + endpointDTOClass);
-            cu.getImports().add(new ImportDeclaration(new Name(endpointDTOclasspackage.toString()), false, false));
+            String dtoClassName = modulePackage + ".dto." + endpointDTOClass.toString();
+            cu.getImports().add(new ImportDeclaration(new Name(dtoClassName), false, false));
         }
 
         cu.getImports().add(new ImportDeclaration(new Name(endpoint.getService().getCode()), false, false));
 
-        String injectedFieldName = getNonCapitalizeNameWithPrefix(serviceCode);
+        String injectedFieldName = "_" + toCamelcase(serviceCode);
         ClassOrInterfaceDeclaration clazz = generateRESTClass(cu, endpointCode, endpoint.getBasePath(),
                 serviceCode, injectedFieldName);
         MethodDeclaration restMethodSignature = generateRESTMethodSignature(endpoint, clazz, httpMethod,
@@ -473,9 +460,9 @@ public class ModuleWarGenerator extends Script {
             for (TSParameterMapping parameterMapping : parametersMappings) {
                 MethodCallExpr getEntity_methodCall = new MethodCallExpr(new NameExpr("parameterMap"), "put");
                 getEntity_methodCall.addArgument(
-                        new StringLiteralExpr(getNonCapitalizedName(parameterMapping.getParameterName())));
+                        new StringLiteralExpr(toCamelcase(parameterMapping.getParameterName())));
                 getEntity_methodCall.addArgument(
-                        new MethodCallExpr(new NameExpr(getNonCapitalizedName(endpointDTOClass)),
+                        new MethodCallExpr(new NameExpr(toCamelcase(endpointDTOClass)),
                                 getterMethodCall(parameterMapping.getParameterName())));
 
                 beforeTryBlock.addStatement(getEntity_methodCall);
@@ -555,7 +542,7 @@ public class ModuleWarGenerator extends Script {
         List<EndpointPathParameter> pathParameters = endpoint.getPathParametersNullSafe();
 
         if (endpointDTOClass != null) {
-            restMethod.addParameter(endpointDTOClass, getNonCapitalizedName(endpointDTOClass));
+            restMethod.addParameter(endpointDTOClass, toCamelcase(endpointDTOClass));
         }
 
         for (EndpointPathParameter endpointPathParameter : pathParameters) {
@@ -631,7 +618,7 @@ public class ModuleWarGenerator extends Script {
             for (TSParameterMapping queryMapping : parametersMappings) {
                 tryBlock.addStatement(new MethodCallExpr(new NameExpr(injectedFieldName),
                         setterMethodCall(queryMapping.getParameterName()))
-                        .addArgument(new MethodCallExpr(new NameExpr(getNonCapitalizedName(endpointDTOClass)),
+                        .addArgument(new MethodCallExpr(new NameExpr(toCamelcase(endpointDTOClass)),
                                 getterMethodCall(queryMapping.getParameterName()))));
             }
         }
@@ -700,32 +687,26 @@ public class ModuleWarGenerator extends Script {
         return new ExpressionStmt(assignExpr);
     }
 
-    /*
-     * input  : CreateMyProduct
-     * return : _createMyProduct
-     */
-    private String getNonCapitalizeNameWithPrefix(String className) {
-        className = className.replaceAll("[^a-zA-Z0-9]", " ").trim();
-        if (StringUtils.isEmpty(className)) {
-            return className;
-        }
-        String objectReferenceName = "_" + className.substring(0, 1).toLowerCase() + className.substring(1);
-        return objectReferenceName.trim();
+    private String toPascalCase(String name) {
+        String[] words = name.trim().split("\\W+");
+        StringBuilder normalizedCode = new StringBuilder();
 
+        for (String word : words) {
+            if (!word.isEmpty()) {
+                normalizedCode.append(Character.toUpperCase(word.charAt(0)))
+                              .append(word.substring(1).toLowerCase());
+            }
+        }
+        return normalizedCode.toString();
     }
 
     /*
      * input  : CreateMyProduct
      * return : createMyProduct
      */
-    private String getNonCapitalizedName(String className) {
-        className = className.replaceAll("[^a-zA-Z0-9]", " ").trim();
-        if (StringUtils.isEmpty(className)) {
-            return className;
-        }
-        String objectReferenceName = className.substring(0, 1).toLowerCase() + className.substring(1);
-        return objectReferenceName.trim();
-
+    private String toCamelcase(String name) {
+        String normalizedName = toPascalCase(name);
+        return normalizedName.substring(0, 1).toLowerCase() + normalizedName.substring(1);
     }
 
     /*
@@ -733,9 +714,7 @@ public class ModuleWarGenerator extends Script {
      * return : setPersonName
      */
     String setterMethodCall(String fieldName) {
-        String fieldNameUpper = fieldName.toUpperCase().substring(0, 1) + fieldName.substring(1, fieldName.length());
-        return "set" + fieldNameUpper;
-
+        return "set" + toPascalCase(fieldName);
     }
 
     /*
@@ -743,22 +722,8 @@ public class ModuleWarGenerator extends Script {
      * return : getPersonName
      */
     String getterMethodCall(String fieldName) {
-        String fieldNameUpper = fieldName.toUpperCase().substring(0, 1) + fieldName.substring(1, fieldName.length());
-        return "get" + fieldNameUpper;
+        return "get" + toPascalCase(fieldName);
 
-    }
-
-    /*
-     * input  : createMyProduct
-     * return : CreateMyProduct
-     */
-    public String capitalize(String str) {
-        str = str.replaceAll("[^a-zA-Z0-9]", " ").trim();
-        if (str == null || str.isEmpty()) {
-            return str;
-        }
-
-        return str.substring(0, 1).toUpperCase() + str.substring(1).trim();
     }
 
     /*
