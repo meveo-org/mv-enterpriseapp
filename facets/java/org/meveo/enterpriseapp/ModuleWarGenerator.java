@@ -108,7 +108,6 @@ public class ModuleWarGenerator extends Script {
                                                   .map(MeveoModuleItem::getItemCode).collect(Collectors.toList());
             LOG.info("Entity codes: {}", entityCodes);
 
-            // SAVE COPY OF MV-TEMPLATE TO MEVEO GIT REPOSITORY
             GitRepository templateRepository = gitRepositoryService.findByCode(JAVA_ENTERPRISE_APP_TEMPLATE);
             if (templateRepository == null) {
                 LOG.info("Create module template repository: {}", JAVA_ENTERPRISE_APP_TEMPLATE);
@@ -127,7 +126,6 @@ public class ModuleWarGenerator extends Script {
             Path templatePath = templateDirectory.toPath();
             LOG.info("Module template path: {}", templatePath);
 
-            /// Generate module
             GitRepository generatedFilesRepo = gitRepositoryService.findByCode(moduleCode);
             gitClient.checkout(generatedFilesRepo, MEVEO_BRANCH, true);
             File generatedFilesDirectory = GitHelper.getRepositoryDir(user, generatedFilesRepo);
@@ -160,7 +158,6 @@ public class ModuleWarGenerator extends Script {
                 throw new BusinessException("Failed creating file." + e.getMessage());
             }
 
-            label("Identity entity, DTO generation, Endpoint generation");
             List<String> endpointCodes = moduleItems
                     .stream()
                     .filter(item -> CUSTOM_ENDPOINT_TEMPLATE.equals(item.getItemClass()))
@@ -177,7 +174,7 @@ public class ModuleWarGenerator extends Script {
                     if (endpoint.getMethod().getLabel().equalsIgnoreCase("POST") ||
                             endpoint.getMethod().getLabel().equalsIgnoreCase("PUT")) {
 
-                        endpointDTOClass = endpoint.getCode() + "DTO";
+                        endpointDTOClass = toPascalCase(endpoint.getCode()) + "DTO";
                         String dtoFilePath = "facets/javaee/org/meveo/" + normalizedCode
                                 + "/dto/" + endpointDTOClass + ".java";
                         LOG.info("Generating endpoint DTO class: {}", dtoFilePath);
