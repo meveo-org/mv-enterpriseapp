@@ -404,7 +404,7 @@ public class ModuleWarGenerator extends Script {
 
         cu.getImports().add(new ImportDeclaration(new Name(endpoint.getService().getCode()), false, false));
 
-        String injectedFieldName = "_" + toCamelcase(serviceCode);
+        String injectedFieldName = "_" + toCamelCase(serviceCode);
         ClassOrInterfaceDeclaration clazz = generateRESTClass(cu, endpointCode, endpoint.getBasePath(),
                 serviceCode, injectedFieldName);
         MethodDeclaration restMethodSignature = generateRESTMethodSignature(endpoint, clazz, httpMethod,
@@ -459,9 +459,9 @@ public class ModuleWarGenerator extends Script {
             for (TSParameterMapping parameterMapping : parametersMappings) {
                 MethodCallExpr getEntity_methodCall = new MethodCallExpr(new NameExpr("parameterMap"), "put");
                 getEntity_methodCall.addArgument(
-                        new StringLiteralExpr(toCamelcase(parameterMapping.getParameterName())));
+                        new StringLiteralExpr(toCamelCase(parameterMapping.getParameterName())));
                 getEntity_methodCall.addArgument(
-                        new MethodCallExpr(new NameExpr(toCamelcase(endpointDTOClass)),
+                        new MethodCallExpr(new NameExpr(toCamelCase(endpointDTOClass)),
                                 getterMethodCall(parameterMapping.getParameterName())));
 
                 beforeTryBlock.addStatement(getEntity_methodCall);
@@ -541,7 +541,7 @@ public class ModuleWarGenerator extends Script {
         List<EndpointPathParameter> pathParameters = endpoint.getPathParametersNullSafe();
 
         if (endpointDTOClass != null) {
-            restMethod.addParameter(endpointDTOClass, toCamelcase(endpointDTOClass));
+            restMethod.addParameter(endpointDTOClass, toCamelCase(endpointDTOClass));
         }
 
         for (EndpointPathParameter endpointPathParameter : pathParameters) {
@@ -617,7 +617,7 @@ public class ModuleWarGenerator extends Script {
             for (TSParameterMapping queryMapping : parametersMappings) {
                 tryBlock.addStatement(new MethodCallExpr(new NameExpr(injectedFieldName),
                         setterMethodCall(queryMapping.getParameterName()))
-                        .addArgument(new MethodCallExpr(new NameExpr(toCamelcase(endpointDTOClass)),
+                        .addArgument(new MethodCallExpr(new NameExpr(toCamelCase(endpointDTOClass)),
                                 getterMethodCall(queryMapping.getParameterName()))));
             }
         }
@@ -693,7 +693,7 @@ public class ModuleWarGenerator extends Script {
         for (String word : words) {
             if (!word.isEmpty()) {
                 normalizedCode.append(Character.toUpperCase(word.charAt(0)))
-                              .append(word.substring(1).toLowerCase());
+                              .append(word.substring(1));
             }
         }
         return normalizedCode.toString();
@@ -703,7 +703,7 @@ public class ModuleWarGenerator extends Script {
      * input  : CreateMyProduct
      * return : createMyProduct
      */
-    private String toCamelcase(String name) {
+    private String toCamelCase(String name) {
         String normalizedName = toPascalCase(name);
         return normalizedName.substring(0, 1).toLowerCase() + normalizedName.substring(1);
     }
