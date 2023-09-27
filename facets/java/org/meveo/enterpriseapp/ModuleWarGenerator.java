@@ -405,7 +405,7 @@ public class ModuleWarGenerator extends Script {
         cu.getImports().add(new ImportDeclaration(new Name(endpoint.getService().getCode()), false, false));
 
         String injectedFieldName = "_" + toCamelCase(serviceCode);
-        ClassOrInterfaceDeclaration clazz = generateRESTClass(cu, endpointCode, endpoint.getBasePath(),
+        ClassOrInterfaceDeclaration clazz = generateRESTClass(cu, toPascalCase(endpointCode), endpoint.getBasePath(),
                 serviceCode, injectedFieldName);
         MethodDeclaration restMethodSignature = generateRESTMethodSignature(endpoint, clazz, httpMethod,
                 endpointDTOClass, endpoint.getContentType());
@@ -504,7 +504,7 @@ public class ModuleWarGenerator extends Script {
      */
     private ClassOrInterfaceDeclaration generateRESTClass(CompilationUnit cu, String endpointCode,
             String httpBasePath, String serviceCode, String injectedFieldName) {
-        ClassOrInterfaceDeclaration clazz = cu.addClass(endpointCode, Modifier.Keyword.PUBLIC);
+        ClassOrInterfaceDeclaration clazz = cu.addClass(toPascalCase(endpointCode, Modifier.Keyword.PUBLIC);
         clazz.addSingleMemberAnnotation("Path", new StringLiteralExpr(httpBasePath));
         clazz.addMarkerAnnotation("RequestScoped");
         var injectedfield = clazz.addField(serviceCode, injectedFieldName, Modifier.Keyword.PRIVATE);
