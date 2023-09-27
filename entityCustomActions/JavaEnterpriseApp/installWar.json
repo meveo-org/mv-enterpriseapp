@@ -1,1 +1,1 @@
-{"code":"installWar","description":"Install WAR","appliesTo":"CE_JavaEnterpriseApp","label":"Install Module WAR","script":"org.meveo.enterpriseapp.ModuleWarInstaller","applicableToEntityList":false,"applicableToEntityInstance":true}
+{"code":"installWar","description":"Install WAR","appliesTo":"CE_JavaEnterpriseApp","label":"Install Module WAR","script":"org.meveo.enterpriseapp.ModuleWarInstaller","applicableToEntityList":false,"applicableToEntityInstance":true,"scriptParameters":{}}

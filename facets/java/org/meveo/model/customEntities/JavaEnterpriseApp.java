@@ -4,6 +4,7 @@ import org.meveo.model.CustomEntity;
 import java.io.Serializable;
 import java.util.List;
 import org.meveo.model.persistence.DBStorageType;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
 public class JavaEnterpriseApp implements CustomEntity, Serializable {
@@ -20,6 +21,7 @@ public class JavaEnterpriseApp implements CustomEntity, Serializable {
     @JsonIgnore()
     private DBStorageType storages;
 
+    @JsonProperty(required = true)
     private String code;
 
     @Override()
