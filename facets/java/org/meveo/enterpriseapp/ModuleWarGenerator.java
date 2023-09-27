@@ -169,11 +169,10 @@ public class ModuleWarGenerator extends Script {
             for (String endpointCode : endpointCodes) {
                 endpointDTOClass = null;
                 Endpoint endpoint = endpointService.findByCode(endpointCode);
-                label("Endpoint DTO class generation");
                 if (!endpoint.getParametersMappingNullSafe().isEmpty()) {
                     if (endpoint.getMethod().getLabel().equalsIgnoreCase("POST") ||
                             endpoint.getMethod().getLabel().equalsIgnoreCase("PUT")) {
-
+                        label("Endpoint DTO class generation");
                         endpointDTOClass = toPascalCase(endpoint.getCode()) + "DTO";
                         String dtoFilePath = "facets/javaee/org/meveo/" + normalizedCode
                                 + "/dto/" + endpointDTOClass + ".java";
@@ -193,7 +192,7 @@ public class ModuleWarGenerator extends Script {
 
                 label("Endpoint Class Generation");
                 String endpointClassPath = "facets/javaee/org/meveo/" + normalizedCode
-                        + "/resource/" + endpoint.getCode() + ".java";
+                        + "/resource/" + toPascalCase(endpoint.getCode()) + ".java";
                 LOG.info("Generating endpoint class: {}", endpointClassPath);
 
                 try {
