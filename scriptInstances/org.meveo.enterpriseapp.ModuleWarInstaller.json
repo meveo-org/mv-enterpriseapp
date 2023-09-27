@@ -1,9 +1,6 @@
 {
-  "code" : "org.meveo.enterpriseapp.DeploymentJavaEnterpriseApplication",
-  "inputs" : [ {
-    "name" : "moduleCode",
-    "type" : "String"
-  } ],
+  "code" : "org.meveo.enterpriseapp.ModuleWarInstaller",
+  "inputs" : [ ],
   "outputs" : [ ],
   "generateOutputs" : false,
   "type" : "JAVA",

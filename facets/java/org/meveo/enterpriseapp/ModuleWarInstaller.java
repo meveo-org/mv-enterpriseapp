@@ -9,32 +9,42 @@ import java.util.zip.ZipOutputStream;
 import org.meveo.admin.exception.BusinessException;
 import org.meveo.commons.utils.ParamBean;
 import org.meveo.commons.utils.ParamBeanFactory;
+import org.meveo.model.customEntities.CustomEntityInstance;
+import org.meveo.model.customEntities.JavaEnterpriseApp;
+import org.meveo.model.persistence.CEIUtils;
 import org.meveo.service.script.Script;
 
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class DeploymentJavaEnterpriseApplication extends Script {
-    private static final Logger LOG = LoggerFactory.getLogger(DeploymentJavaEnterpriseApplication.class);
+public class ModuleWarInstaller extends Script {
+    private static final Logger LOG = LoggerFactory.getLogger(ModuleWarInstaller.class);
 
     private static final String LINE_SEPARATOR = System.lineSeparator();
     private static final String PATH_SEPARATORS = "/\\";
+    private static final String DIVIDER = StringUtils.repeat("-", 15);
 
     private final ParamBeanFactory paramBeanFactory = getCDIBean(ParamBeanFactory.class);
     private final ParamBean config = paramBeanFactory.getInstance();
 
-    private String moduleCode;
-
-    public void setModuleCode(String moduleCode) {
-        this.moduleCode = moduleCode;
-    }
-
     @Override
     public void execute(Map<String, Object> parameters) throws BusinessException {
-        LOG.info("START - Deploying {} module war", moduleCode);
-        deploymentOfModule(moduleCode);
-        LOG.info("END - Deploying {} module war", moduleCode);
+        label("ModuleWarInstaller.execute() - START");
+        CustomEntityInstance cei = (CustomEntityInstance) parameters.get(CONTEXT_ENTITY);
+
+        JavaEnterpriseApp javaEnterpriseApp = CEIUtils.ceiToPojo(cei, JavaEnterpriseApp.class);
+        String moduleCode = javaEnterpriseApp.getCode();
+
+        if (StringUtils.isEmpty(moduleCode)) {
+            throw new BusinessException("No module code was provided.");
+        }
+
+        LOG.info("Installing WAR for module: {}", moduleCode);
+
+        installModuleWAR(moduleCode);
+
+        LOG.info("ModuleWarInstaller.execute() - DONE");
     }
 
     private String normalizeDirectory(String directoryPath) {
@@ -48,11 +58,11 @@ public class DeploymentJavaEnterpriseApplication extends Script {
         return directory;
     }
 
-    private String buildMavenPath(String dataPath, String providerCode) {
+    private String buildMavenPath(String moduleCode, String dataPath, String providerCode) {
         return String.join(File.separator, dataPath, providerCode, "git", moduleCode, "facets", "mavenee");
     }
 
-    private String buildXmlContent() {
+    private String buildModuleXML(String moduleCode) {
         return String.join(LINE_SEPARATOR, LINE_SEPARATOR,
                 "  <module id=\"war.meveo." + moduleCode + "\">",
                 "    <web>",
@@ -106,7 +116,7 @@ public class DeploymentJavaEnterpriseApplication extends Script {
         LOG.info("Successfully initialized temp folder: {}", tempFolder.getAbsolutePath());
     }
 
-    private void deploymentOfModule(String moduleCode) throws BusinessException {
+    private void installModuleWAR(String moduleCode) throws BusinessException {
         String providerCode = normalizeDirectory(config.getProperty("provider.rootDir", "default"));
         String meveoDataPath = config.getProperty("providers.rootDir", "./meveodata");
         meveoDataPath = (new File(meveoDataPath)).getAbsolutePath().replaceAll("/\\./", "/");
@@ -119,8 +129,8 @@ public class DeploymentJavaEnterpriseApplication extends Script {
         String tempFolderPath = String.join(File.separator, wildflyPath, "standalone", "databackup");
         initializeTempFolder(tempFolderPath);
 
-        String mavenPath = buildMavenPath(meveoDataPath, providerCode);
-        prepareMeveoEarFile(moduleCode, providerCode, wildflyPath, mavenPath);
+        String mavenPath = buildMavenPath(moduleCode, meveoDataPath, providerCode);
+        prepareMeveoEARFile(moduleCode, wildflyPath, mavenPath);
 
         String deploymentScriptPath = String.join(File.separator, mavenPath, "moduledeployment.sh");
         File deploymentScript = new File(deploymentScriptPath);
@@ -141,7 +151,7 @@ public class DeploymentJavaEnterpriseApplication extends Script {
         }
     }
 
-    private void prepareMeveoEarFile(String moduleCode, String providerCode, String wildflyPath, String mavenPath)
+    private void prepareMeveoEARFile(String moduleCode, String wildflyPath, String mavenPath)
             throws BusinessException {
         String earFilePath = String.join(File.separator, wildflyPath, "standalone", "deployments", "meveo.ear");
         File earFile = new File(earFilePath);
@@ -190,14 +200,16 @@ public class DeploymentJavaEnterpriseApplication extends Script {
                     if (xmlBuffer.toString().contains(moduleCode)) {  // If moduleCode already exist
                         updatedXmlContent.write(xmlBuffer.toString().getBytes());
                     } else {
-                        updatedXmlContent.write(
-                                xmlBuffer.toString().replaceAll("</application>", buildXmlContent()).getBytes());
+                        String moduleXML = buildModuleXML(moduleCode);
+                        String xmlContent = xmlBuffer.toString().replaceAll("</application>", moduleXML);
+                        updatedXmlContent.write(xmlContent.getBytes());
                     }
 
                     earZipOutput.putNextEntry(new ZipEntry("META-INF/application.xml"));
                     earZipOutput.write(updatedXmlContent.toByteArray());
                     earZipOutput.closeEntry();
                 }
+                LOG.info("Successfully added: {}", entryName);
             }
 
             FileInputStream warFileInput = new FileInputStream(warFilePath);
@@ -211,10 +223,16 @@ public class DeploymentJavaEnterpriseApplication extends Script {
             earZipOutput.close();
             earFileInput.close();
             earFileOutput.close();
+
+            LOG.info("Successfully created: {}", warFilePath);
         } catch (IOException e) {
             throw new BusinessException("Encountered error while trying to prepare EAR file", e);
         }
 
+    }
+
+    private void label(String labelString, Object... params) {
+        LOG.info(DIVIDER + " " + labelString + " " + DIVIDER, params);
     }
 
 }

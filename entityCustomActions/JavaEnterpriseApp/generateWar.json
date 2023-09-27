@@ -1,0 +1,1 @@
+{"code":"generateWar","description":"Generate module WAR","appliesTo":"CE_JavaEnterpriseApp","label":"Generate module WAR","script":"org.meveo.enterpriseapp.ModuleWarGenerator","applicableToEntityList":false,"applicableToEntityInstance":true}

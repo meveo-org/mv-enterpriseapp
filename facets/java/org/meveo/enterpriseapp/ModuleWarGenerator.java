@@ -14,11 +14,13 @@ import java.util.stream.Stream;
 import org.meveo.admin.exception.BusinessException;
 import org.meveo.commons.utils.ParamBean;
 import org.meveo.commons.utils.ParamBeanFactory;
+import org.meveo.model.customEntities.CustomEntityInstance;
 import org.meveo.model.customEntities.CustomEntityTemplate;
 import org.meveo.model.customEntities.JavaEnterpriseApp;
 import org.meveo.model.git.GitRepository;
 import org.meveo.model.module.MeveoModule;
 import org.meveo.model.module.MeveoModuleItem;
+import org.meveo.model.persistence.CEIUtils;
 import org.meveo.model.scripts.Accessor;
 import org.meveo.model.scripts.ScriptInstance;
 import org.meveo.model.technicalservice.endpoint.Endpoint;
@@ -51,8 +53,8 @@ import org.apache.maven.shared.invoker.MavenInvocationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class GenerateJavaEnterpriseApplication extends Script {
-    private static final Logger LOG = LoggerFactory.getLogger(GenerateJavaEnterpriseApplication.class);
+public class ModuleWarGenerator extends Script {
+    private static final Logger LOG = LoggerFactory.getLogger(ModuleWarGenerator.class);
 
     private static final String PATH_SEPARATORS = "/\\";
     private static final String MEVEO_BRANCH = "meveo";
@@ -68,6 +70,7 @@ public class GenerateJavaEnterpriseApplication extends Script {
     private static final String CUSTOM_ENDPOINT_RESOURCE = "CustomEndpointResource";
     private static final String CUSTOM_ENDPOINT_BASE_RESOURCE_PACKAGE = "org.meveo.base.CustomEndpointResource";
     private static final String MODULE_VERSION = "1.0.0";
+    private static final String DIVIDER = StringUtils.repeat("-", 15);
 
     private final ParamBeanFactory paramBeanFactory = getCDIBean(ParamBeanFactory.class);
     private final ParamBean config = paramBeanFactory.getInstance();
@@ -77,115 +80,120 @@ public class GenerateJavaEnterpriseApplication extends Script {
     private final ScriptInstanceService scriptInstanceService = getCDIBean(ScriptInstanceService.class);
     private final EndpointService endpointService = getCDIBean(EndpointService.class);
 
-    private String moduleCode;
-
-    public void setModuleCode(String moduleCode) {
-        this.moduleCode = moduleCode;
-    }
-
     @Override
     public void execute(Map<String, Object> parameters) throws BusinessException {
+        label("ModuleWarGenerator.execute() - START");
         super.execute(parameters);
 
-        if (moduleCode == null) {
-            throw new BusinessException("moduleCode not set");
+        CustomEntityInstance cei = (CustomEntityInstance) parameters.get(CONTEXT_ENTITY);
+
+        JavaEnterpriseApp javaEnterpriseApp = CEIUtils.ceiToPojo(cei, JavaEnterpriseApp.class);
+        String moduleCode = javaEnterpriseApp.getCode();
+
+        if (StringUtils.isEmpty(moduleCode)) {
+            throw new BusinessException("No module code was provided.");
         }
+
+        LOG.info("Generating WAR for module: {}", moduleCode);
+
         MeveoModule module = meveoModuleService.findByCode(moduleCode);
         MeveoUser user = (MeveoUser) parameters.get(CONTEXT_CURRENT_USER);
 
-        LOG.info("generating java enterprise application from module, {}", moduleCode);
         if (module != null) {
-            LOG.debug("Module found: {}", module.getCode());
+            LOG.info("Module: {}, found", module.getCode());
+
             Set<MeveoModuleItem> moduleItems = module.getModuleItems();
-            LOG.debug("CUSTOM_TEMPLATE={}", CUSTOM_TEMPLATE);
+            LOG.info("Custom template: {}", CUSTOM_TEMPLATE);
+
             List<String> entityCodes = moduleItems.stream().filter(item -> CUSTOM_TEMPLATE.equals(item.getItemClass()))
                                                   .map(entity -> entity.getItemCode()).collect(Collectors.toList());
-            LOG.debug("entityCodes: {}", entityCodes);
+            LOG.info("Entity codes: {}", entityCodes);
 
             // SAVE COPY OF MV-TEMPLATE TO MEVEO GIT REPOSITORY
             GitRepository enterpriseAppTemplateRepo = gitRepositoryService.findByCode(JAVA_ENTERPRISE_APP_TEMPLATE);
-            if (enterpriseAppTemplateRepo == null) {
-                LOG.debug("CREATE NEW GitRepository: {}", JAVA_ENTERPRISE_APP_TEMPLATE);
-                enterpriseAppTemplateRepo = new GitRepository();
-                enterpriseAppTemplateRepo.setCode(JAVA_ENTERPRISE_APP_TEMPLATE);
-                enterpriseAppTemplateRepo.setDescription(JAVA_ENTERPRISE_APP_TEMPLATE + " Template repository");
-                enterpriseAppTemplateRepo.setRemoteOrigin(MV_TEMPLATE_REPO);
-                enterpriseAppTemplateRepo.setDefaultRemoteUsername("");
-                enterpriseAppTemplateRepo.setDefaultRemotePassword("");
-                gitRepositoryService.create(enterpriseAppTemplateRepo);
-            } else {
-                gitClient.pull(enterpriseAppTemplateRepo, "", "");
-            }
-            File enterpriseappTemplateDirectory = GitHelper.getRepositoryDir(user, enterpriseAppTemplateRepo);
-            Path enterpriseAppTemplatePath = enterpriseappTemplateDirectory.toPath();
-            LOG.debug("webappTemplate path: {}", enterpriseAppTemplatePath.toString());
+            LOG.info("Enterprise App Template Git repo: {}", enterpriseAppTemplateRepo.getRemoteOrigin());
+            gitClient.pull(enterpriseAppTemplateRepo, "", "");
 
-            /// Generate module
+            File enterpriseAppTemplateDirectory = GitHelper.getRepositoryDir(user, enterpriseAppTemplateRepo);
+            Path enterpriseAppTemplatePath = enterpriseAppTemplateDirectory.toPath();
+            LOG.info("App template path: {}", enterpriseAppTemplatePath.toString());
+
+            label("Generate module");
             GitRepository moduleEnterpriseAppRepo = gitRepositoryService.findByCode(moduleCode);
             gitClient.checkout(moduleEnterpriseAppRepo, MEVEO_BRANCH, true);
             File moduleEnterpriseAppDirectory = GitHelper.getRepositoryDir(user, moduleEnterpriseAppRepo);
             Path moduleEnterpriseAppPath = moduleEnterpriseAppDirectory.toPath();
             String pomFilePath = moduleEnterpriseAppDirectory.getAbsolutePath() + "/facets/maven/pom.xml";
+            LOG.info("POM file: {}", pomFilePath);
+
             List<File> filesToCommit = new ArrayList<>();
             String basePath = config.getProperty("providers.rootDir", "./meveodata/");
             basePath = (new File(basePath)).getAbsolutePath().replaceAll("/\\./", "/");
             basePath = StringUtils.stripEnd(basePath, PATH_SEPARATORS);
             basePath = StringUtils.stripEnd(basePath, ".");
             LOG.info("Meveo data path: {}", basePath);
-            //***************RestConfiguration file  Generation************************
 
-            String pathJavaRestConfigurationFile = "facets/javaee/org/meveo/" + moduleCode + "/rest/"
+            label("RESTConfiguration file  Generation");
+            String restConfigurationPath = "facets/javaee/org/meveo/" + moduleCode + "/rest/"
                     + capitalize(moduleCode) + "RestConfig" + ".java";
+            LOG.info("Rest configuration file: {}", restConfigurationPath);
 
             try {
 
-                File restConfigfile = new File(moduleEnterpriseAppDirectory, pathJavaRestConfigurationFile);
-                String restConfigurationFileContent = generateRestConfigurationClass(moduleCode);
+                File restConfigfile = new File(moduleEnterpriseAppDirectory, restConfigurationPath);
+                String restConfigurationFileContent = generateRESTConfigurationClass(moduleCode);
                 FileUtils.write(restConfigfile, restConfigurationFileContent, StandardCharsets.UTF_8);
+                LOG.info("Successfully created rest configuration file: {}", restConfigfile.getPath());
                 filesToCommit.add(restConfigfile);
             } catch (IOException e) {
                 throw new BusinessException("Failed creating file." + e.getMessage());
             }
 
-            // -----Identity entity,DTO Generation,  EndPoint Generation--------------------
+            label("Identity entity, DTO generation, Endpoint generation");
             List<String> endpointCodes = moduleItems
                     .stream()
                     .filter(item -> CUSTOM_ENDPOINT_TEMPLATE.equals(item.getItemClass()))
                     .map(MeveoModuleItem::getItemCode)
                     .collect(Collectors.toList());
 
-            String endPointDtoClass = null;
+            String endpointDTOClass = null;
 
             for (String endpointCode : endpointCodes) {
-                endPointDtoClass = null;
+                endpointDTOClass = null;
                 Endpoint endpoint = endpointService.findByCode(endpointCode);
-                //Endpoint DTO class Generation
+                label("Endpoint DTO class generation");
                 if (!endpoint.getParametersMappingNullSafe().isEmpty()) {
                     if (endpoint.getMethod().getLabel().equalsIgnoreCase("POST") ||
                             endpoint.getMethod().getLabel().equalsIgnoreCase("PUT")) {
 
-                        endPointDtoClass = endpoint.getCode() + "Dto";
-                        String pathJavaDtoFile =
-                                "facets/javaee/org/meveo/" + moduleCode + "/dto/" + endPointDtoClass + ".java";
+                        endpointDTOClass = endpoint.getCode() + "DTO";
+                        String dtoFilePath = "facets/javaee/org/meveo/" + moduleCode
+                                + "/dto/" + endpointDTOClass + ".java";
+                        LOG.info("Generating endpoint DTO class: {}", dtoFilePath);
                         try {
-                            File dtofile = new File(moduleEnterpriseAppDirectory, pathJavaDtoFile);
-                            String dtocontent = generateEndPointDto(moduleCode, endpoint, endPointDtoClass);
-                            FileUtils.write(dtofile, dtocontent, StandardCharsets.UTF_8);
-                            filesToCommit.add(dtofile);
+                            File dtoFile = new File(moduleEnterpriseAppDirectory, dtoFilePath);
+                            String dtoContent = generateEndpointDTO(moduleCode, endpoint, endpointDTOClass);
+                            FileUtils.write(dtoFile, dtoContent, StandardCharsets.UTF_8);
+                            LOG.info("Successfully created endpoint DTO: {}", dtoFile.getPath());
+                            filesToCommit.add(dtoFile);
                         } catch (IOException e) {
                             throw new BusinessException("Failed creating file." + e.getMessage());
                         }
 
                     }
                 }
-                //Endpoint Class Generation
-                String pathEndpointFile =
-                        "facets/javaee/org/meveo/" + moduleCode + "/resource/" + endpoint.getCode() + ".java";
+
+                label("Endpoint Class Generation");
+                String endpointClassPath = "facets/javaee/org/meveo/" + moduleCode
+                        + "/resource/" + endpoint.getCode() + ".java";
+                LOG.info("Generating endpoint class: {}", endpointClassPath);
+
                 try {
-                    File endPointFile = new File(moduleEnterpriseAppDirectory, pathEndpointFile);
-                    String endPointContent = generateEndPoint(moduleCode, endpoint, endPointDtoClass);
-                    FileUtils.write(endPointFile, endPointContent, StandardCharsets.UTF_8);
-                    filesToCommit.add(endPointFile);
+                    File endpointFile = new File(moduleEnterpriseAppDirectory, endpointClassPath);
+                    String endpointContent = generateEndpoint(moduleCode, endpoint, endpointDTOClass);
+                    FileUtils.write(endpointFile, endpointContent, StandardCharsets.UTF_8);
+                    LOG.info("Successfully created endpoint class: {}", endpointFile.getPath());
+                    filesToCommit.add(endpointFile);
                 } catch (IOException e) {
                     throw new BusinessException("Failed creating file." + e.getMessage());
                 }
@@ -195,6 +203,8 @@ public class GenerateJavaEnterpriseApplication extends Script {
 
                 List<File> templateFiles = templateFileCopy(moduleCode, enterpriseAppTemplatePath,
                         moduleEnterpriseAppPath, repositoriesTagContent);
+                LOG.info("Successfully copied the following files from the template: {}",
+                        templateFiles.stream().map(File::getPath).collect(Collectors.toList()));
                 filesToCommit.addAll(templateFiles);
             }
 
@@ -202,23 +212,28 @@ public class GenerateJavaEnterpriseApplication extends Script {
                 gitClient.commitFiles(moduleEnterpriseAppRepo, filesToCommit, "DTO & Endpoint generation.");
             }
 
-            generationWar(moduleEnterpriseAppDirectory.getAbsolutePath());
+            generateWAR(moduleEnterpriseAppDirectory.getAbsolutePath());
 
+        } else {
+            LOG.warn("Module with code: {} does not exist.", moduleCode);
         }
-        LOG.debug("------ GenerateJavaEnterpriseApplication.execute()--------------");
+
+        label("ModuleWarGenerator.execute() - DONE");
     }
 
     /*
      * Generate module war file in local repo folder
      */
-    private void generationWar(String moduleEnterpriseAppDirectoryPath) throws BusinessException {
-        String javaPath = moduleEnterpriseAppDirectoryPath + "/facets/java";
-        String javasymlinkpath = moduleEnterpriseAppDirectoryPath + "/facets/mavenee/src/main/java";
-        symbolicLinkCreation(javaPath, javasymlinkpath);
+    private void generateWAR(String modulePath) throws BusinessException {
+        String mavenEEDirectory = modulePath + "/facets/mavenee";
 
-        String javaeePath = moduleEnterpriseAppDirectoryPath + "/facets/javaee";
-        String javaeesymlinkpath = moduleEnterpriseAppDirectoryPath + "/facets/mavenee/src/main/javaee";
-        symbolicLinkCreation(javaeePath, javaeesymlinkpath);
+        String javaPath = modulePath + "/facets/java";
+        String mavenEEJavaPath = mavenEEDirectory + "/src/main/java";
+        symbolicLinkCreation(javaPath, mavenEEJavaPath);
+
+        String javaEEPath = modulePath + "/facets/javaee";
+        String mavenEEJavaEEPath = mavenEEDirectory + "/src/main/javaee";
+        symbolicLinkCreation(javaEEPath, mavenEEJavaEEPath);
 
         String mvnHome = null;
 
@@ -229,16 +244,20 @@ public class GenerateJavaEnterpriseApplication extends Script {
         } else if (System.getenv("MVN_HOME") != null) {
             mvnHome = System.getenv("MVN_HOME");
         }
+        if (StringUtils.isEmpty(mvnHome)) {
+            throw new BusinessException("Failed to retrieve Maven home path");
+        }
 
-        String maveneeDir = moduleEnterpriseAppDirectoryPath + "/facets/mavenee";
+        LOG.info("Maven Home path: {}", mvnHome);
 
         InvocationRequest request = new DefaultInvocationRequest();
-        request.setBaseDirectory(new File(maveneeDir));
+        request.setBaseDirectory(new File(mavenEEDirectory));
         request.setGoals(Collections.singletonList("package"));
 
         try {
             DefaultInvoker invoker = new DefaultInvoker();
             invoker.setMavenHome(new File(mvnHome));
+            label("Executing maven package using pom.xml in: {}", mavenEEDirectory);
             invoker.execute(request);
         } catch (MavenInvocationException e) {
             LOG.error("Failed to mvn package for mavenee pom.xml", e);
@@ -259,6 +278,7 @@ public class GenerateJavaEnterpriseApplication extends Script {
             Path target = FileSystems.getDefault().getPath(targetFilePath);
             Path link = FileSystems.getDefault().getPath(symbolicLinkPath);
             Files.createSymbolicLink(link, target);
+            LOG.info("Symbolic link: {} to: {}, successfully created.", link.toString(), target.toString());
         } catch (IOException e) {
             LOG.error("Failed to create symbolic link: {} => {}", targetFilePath, symbolicLinkPath, e);
         }
@@ -269,17 +289,17 @@ public class GenerateJavaEnterpriseApplication extends Script {
      *
      * @param moduleCode
      * @param endpoint
-     * @param endPointDtoClass
+     * @param endpointDTOClass
      * @return
      */
-    String generateEndPointDto(String moduleCode, Endpoint endpoint, String endPointDtoClass) {
+    String generateEndpointDTO(String moduleCode, Endpoint endpoint, String endpointDTOClass) {
         CompilationUnit compilationUnit = new CompilationUnit();
         ScriptInstance scriptInstance = scriptInstanceService.findByCode(endpoint.getService().getCode());
         StringBuilder dtoPackage = new StringBuilder("org.meveo.").append(moduleCode).append(".dto");
         compilationUnit.setPackageDeclaration(dtoPackage.toString());
         compilationUnit.getImports()
                        .add(new ImportDeclaration(new Name("org.meveo.model.customEntities"), false, true));
-        ClassOrInterfaceDeclaration classDeclaration = compilationUnit.addClass(endPointDtoClass).setPublic(true);
+        ClassOrInterfaceDeclaration classDeclaration = compilationUnit.addClass(endpointDTOClass).setPublic(true);
 
         classDeclaration.addConstructor();
         List<TSParameterMapping> parametersMappings = endpoint.getParametersMappingNullSafe();
@@ -290,11 +310,11 @@ public class GenerateJavaEnterpriseApplication extends Script {
 
         for (TSParameterMapping parameterMapping : parametersMappings) {
 
-            String pathParameterType = scriptInstance.getSetters().stream()
-                                                     .filter(p -> p.getName().equalsIgnoreCase(
-                                                             parameterMapping.getParameterName()))
-                                                     .map(p -> p.getType())
-                                                     .findFirst().get();
+            String pathParameterType = scriptInstance
+                    .getSetters().stream()
+                    .filter(p -> p.getName().equalsIgnoreCase(parameterMapping.getParameterName()))
+                    .map(p -> p.getType())
+                    .findFirst().get();
 
             FieldDeclaration entityClassField = new FieldDeclaration();
             VariableDeclarator entityClassVar = new VariableDeclarator();
@@ -309,22 +329,25 @@ public class GenerateJavaEnterpriseApplication extends Script {
             entityClassField.createSetter();
         }
 
+        LOG.info("Successfully generated endpoint DTO contents for: {}", endpointDTOClass);
+
         return compilationUnit.toString();
     }
 
     /**
-     * Generate Rest Configuration class
+     * Generate REST Configuration class
      *
      * @param moduleCode
      * @return
      */
-    String generateRestConfigurationClass(String moduleCode) {
+    String generateRESTConfigurationClass(String moduleCode) {
         CompilationUnit compilationUnit = new CompilationUnit();
         compilationUnit.setPackageDeclaration("org.meveo." + moduleCode + ".rest");
         compilationUnit.getImports().add(new ImportDeclaration(new Name("javax.ws.rs.ApplicationPath"), false, false));
         compilationUnit.getImports().add(new ImportDeclaration(new Name("javax.ws.rs.core.Application"), false, false));
 
-        ClassOrInterfaceDeclaration classDeclaration = compilationUnit.addClass(capitalize(moduleCode) + "RestConfig")
+        String className = capitalize(moduleCode) + "RestConfig";
+        ClassOrInterfaceDeclaration classDeclaration = compilationUnit.addClass(className)
                                                                       .setPublic(true);
         classDeclaration.addSingleMemberAnnotation("ApplicationPath", new StringLiteralExpr("api"));
 
@@ -332,25 +355,27 @@ public class GenerateJavaEnterpriseApplication extends Script {
         extendsList.add(new ClassOrInterfaceType().setName(new SimpleName("Application")));
         classDeclaration.setExtendedTypes(extendsList);
 
+        LOG.info("Successfully generated REST configuration class: {}", className);
+
         return compilationUnit.toString();
     }
 
     /**
      * Generate EndPoint class
      *
-     * @param endPoint
-     * @param endPointDtoClass
+     * @param endpoint
+     * @param endpointDTOClass
      * @param moduleCode
      * @return
      */
-    public String generateEndPoint(String moduleCode, Endpoint endPoint, String endPointDtoClass) {
-        String endPointCode = endPoint.getCode();
-        String httpMethod = endPoint.getMethod().getLabel();
-        String serviceCode = getServiceCode(endPoint.getService().getCode());
+    public String generateEndpoint(String moduleCode, Endpoint endpoint, String endpointDTOClass) {
+        String endpointCode = endpoint.getCode();
+        String httpMethod = endpoint.getMethod().getLabel();
+        String serviceCode = getServiceCode(endpoint.getService().getCode());
 
         CompilationUnit cu = new CompilationUnit();
-        StringBuilder resourcepackage = new StringBuilder("org.meveo.").append(moduleCode).append(".resource");
-        cu.setPackageDeclaration(resourcepackage.toString());
+        StringBuilder resourcePackage = new StringBuilder("org.meveo.").append(moduleCode).append(".resource");
+        cu.setPackageDeclaration(resourcePackage.toString());
         cu.getImports().add(new ImportDeclaration(new Name("java.time"), false, true));
         cu.getImports().add(new ImportDeclaration(new Name("java.util"), false, true));
         cu.getImports().add(new ImportDeclaration(new Name("javax.ws.rs"), false, true));
@@ -361,45 +386,47 @@ public class GenerateJavaEnterpriseApplication extends Script {
           .add(new ImportDeclaration(new Name("org.meveo.admin.exception.BusinessException"), false, false));
         cu.getImports().add(new ImportDeclaration(new Name(CUSTOM_ENDPOINT_BASE_RESOURCE_PACKAGE), false, false));
 
-        if (endPointDtoClass != null) {
-            StringBuilder endpointDtoclasspackage = new StringBuilder("org.meveo.").append(moduleCode)
-                                                                                   .append(".dto." + endPointDtoClass);
-            cu.getImports().add(new ImportDeclaration(new Name(endpointDtoclasspackage.toString()), false, false));
+        if (endpointDTOClass != null) {
+            StringBuilder endpointDTOclasspackage = new StringBuilder("org.meveo.").append(moduleCode)
+                                                                                   .append(".dto." + endpointDTOClass);
+            cu.getImports().add(new ImportDeclaration(new Name(endpointDTOclasspackage.toString()), false, false));
         }
 
-        cu.getImports().add(new ImportDeclaration(new Name(endPoint.getService().getCode()), false, false));
+        cu.getImports().add(new ImportDeclaration(new Name(endpoint.getService().getCode()), false, false));
 
         String injectedFieldName = getNonCapitalizeNameWithPrefix(serviceCode);
-        ClassOrInterfaceDeclaration clazz = generateRestClass(cu, endPointCode, httpMethod, endPoint.getBasePath(),
+        ClassOrInterfaceDeclaration clazz = generateRESTClass(cu, endpointCode, endpoint.getBasePath(),
                 serviceCode, injectedFieldName);
-        MethodDeclaration restMethodSignature = generateRestMethodSignature(endPoint, clazz, httpMethod,
-                endPoint.getPath(), endPointDtoClass, endPoint.getContentType());
+        MethodDeclaration restMethodSignature = generateRESTMethodSignature(endpoint, clazz, httpMethod,
+                endpointDTOClass, endpoint.getContentType());
 
         VariableDeclarator var_result = new VariableDeclarator();
 
-        BlockStmt beforeTrybBlockStmt = generateBeforeTryBlockStmt(endPoint, var_result, endPointDtoClass);
-        Statement tryBlockstatement = generateTryBlock(endPoint, var_result, injectedFieldName, endPointDtoClass);
+        BlockStmt beforeTrybBlockStmt = generateBeforeTryBlockStmt(endpoint, var_result, endpointDTOClass);
+        Statement tryBlockstatement = generateTryBlock(endpoint, var_result, injectedFieldName, endpointDTOClass);
         beforeTrybBlockStmt.addStatement(tryBlockstatement);
 
         restMethodSignature.setBody(beforeTrybBlockStmt);
         restMethodSignature.getBody().get().getStatements().add(getReturnType());
 
+        LOG.info("Successfully generated endpoint: {} - {}", httpMethod, endpointCode);
+
         return cu.toString();
     }
 
     /**
-     * Exmaple :  parameterMap.put("product", createProductRSDto.getProduct());
+     * Exmaple :  parameterMap.put("product", createProductRSDTO.getProduct());
      *
-     * @param endPoint
+     * @param endpoint
      * @param var_result
-     * @param endPointDtoClass
+     * @param endpointDTOClass
      * @return
      */
-    private BlockStmt generateBeforeTryBlockStmt(Endpoint endPoint, VariableDeclarator var_result,
-            String endPointDtoClass) {
-        BlockStmt beforeTryblock = new BlockStmt();
+    private BlockStmt generateBeforeTryBlockStmt(Endpoint endpoint, VariableDeclarator var_result,
+            String endpointDTOClass) {
+        BlockStmt beforeTryBlock = new BlockStmt();
 
-        ScriptInstance scriptInstance = scriptInstanceService.findByCode(endPoint.getService().getCode());
+        ScriptInstance scriptInstance = scriptInstanceService.findByCode(endpoint.getService().getCode());
         for (Accessor getter : scriptInstance.getGetters()) {
             var_result.setName(getter.getName());
             var_result.setType(getter.getType());
@@ -408,69 +435,66 @@ public class GenerateJavaEnterpriseApplication extends Script {
 
         NodeList<VariableDeclarator> var_result_declarator = new NodeList<>();
         var_result_declarator.add(var_result);
-        beforeTryblock.addStatement(
+        beforeTryBlock.addStatement(
                 new ExpressionStmt().setExpression(new VariableDeclarationExpr().setVariables(var_result_declarator)));
 
-        beforeTryblock.addStatement(new ExpressionStmt(new NameExpr("parameterMap = new HashMap<String, Object>()")));
+        beforeTryBlock.addStatement(new ExpressionStmt(new NameExpr("parameterMap = new HashMap<String, Object>()")));
 
-        List<TSParameterMapping> parametersMappings = endPoint.getParametersMappingNullSafe();
-        List<EndpointPathParameter> pathParameters = endPoint.getPathParametersNullSafe();
+        List<TSParameterMapping> parametersMappings = endpoint.getParametersMappingNullSafe();
+        List<EndpointPathParameter> pathParameters = endpoint.getPathParametersNullSafe();
 
-        if (endPoint.getMethod().getLabel().equalsIgnoreCase("POST") ||
-                endPoint.getMethod().getLabel().equalsIgnoreCase("PUT")) {
+        if (endpoint.getMethod().getLabel().equalsIgnoreCase("POST") ||
+                endpoint.getMethod().getLabel().equalsIgnoreCase("PUT")) {
 
             for (TSParameterMapping parameterMapping : parametersMappings) {
                 MethodCallExpr getEntity_methodCall = new MethodCallExpr(new NameExpr("parameterMap"), "put");
                 getEntity_methodCall.addArgument(
-                        new StringLiteralExpr(getNonCapitalizeName(parameterMapping.getParameterName())));
+                        new StringLiteralExpr(getNonCapitalizedName(parameterMapping.getParameterName())));
                 getEntity_methodCall.addArgument(
-                        new MethodCallExpr(new NameExpr(getNonCapitalizeName(endPointDtoClass)),
+                        new MethodCallExpr(new NameExpr(getNonCapitalizedName(endpointDTOClass)),
                                 getterMethodCall(parameterMapping.getParameterName())));
 
-                beforeTryblock.addStatement(getEntity_methodCall);
+                beforeTryBlock.addStatement(getEntity_methodCall);
             }
 
         }
 
-        if (endPoint.getMethod().getLabel().equalsIgnoreCase("GET") ||
-                endPoint.getMethod().getLabel().equalsIgnoreCase("DELETE")) {
-
+        String methodLabel = endpoint.getMethod().getLabel();
+        if ("GET".equalsIgnoreCase(methodLabel) || "DELETE".equalsIgnoreCase(methodLabel)) {
             for (TSParameterMapping parameterMapping : parametersMappings) {
                 MethodCallExpr getPathParametermethodcall = new MethodCallExpr(new NameExpr("parameterMap"), "put");
                 getPathParametermethodcall.addArgument(new StringLiteralExpr(parameterMapping.getParameterName()));
                 getPathParametermethodcall.addArgument(new StringLiteralExpr(parameterMapping.getParameterName()));
 
-                beforeTryblock.addStatement(getPathParametermethodcall);
+                beforeTryBlock.addStatement(getPathParametermethodcall);
             }
         }
 
-        //parameterMap.put("uuid", "uuid");
         for (EndpointPathParameter endpointPathParameter : pathParameters) {
             MethodCallExpr getPathParametermethodcall = new MethodCallExpr(new NameExpr("parameterMap"), "put");
             getPathParametermethodcall.addArgument(new StringLiteralExpr(endpointPathParameter.toString()));
             getPathParametermethodcall.addArgument(new StringLiteralExpr(endpointPathParameter.toString()));
 
-            beforeTryblock.addStatement(getPathParametermethodcall);
+            beforeTryBlock.addStatement(getPathParametermethodcall);
         }
 
-        beforeTryblock.addStatement(new ExpressionStmt(new MethodCallExpr(SET_REQUEST_RESPONSE_METHOD)));
-        return beforeTryblock;
+        beforeTryBlock.addStatement(new ExpressionStmt(new MethodCallExpr(SET_REQUEST_RESPONSE_METHOD)));
+        return beforeTryBlock;
     }
 
     /**
-     * Create Rest class
+     * Create REST class
      *
      * @param cu
-     * @param endPointCode
-     * @param httpMethod
+     * @param endpointCode
      * @param httpBasePath
      * @param serviceCode
      * @param injectedFieldName
      * @return
      */
-    private ClassOrInterfaceDeclaration generateRestClass(CompilationUnit cu, String endPointCode, String httpMethod,
+    private ClassOrInterfaceDeclaration generateRESTClass(CompilationUnit cu, String endpointCode,
             String httpBasePath, String serviceCode, String injectedFieldName) {
-        ClassOrInterfaceDeclaration clazz = cu.addClass(endPointCode, Modifier.Keyword.PUBLIC);
+        ClassOrInterfaceDeclaration clazz = cu.addClass(endpointCode, Modifier.Keyword.PUBLIC);
         clazz.addSingleMemberAnnotation("Path", new StringLiteralExpr(httpBasePath));
         clazz.addMarkerAnnotation("RequestScoped");
         var injectedfield = clazz.addField(serviceCode, injectedFieldName, Modifier.Keyword.PRIVATE);
@@ -479,59 +503,60 @@ public class GenerateJavaEnterpriseApplication extends Script {
         NodeList<ClassOrInterfaceType> extendsList = new NodeList<>();
         extendsList.add(new ClassOrInterfaceType().setName(new SimpleName(CUSTOM_ENDPOINT_RESOURCE)));
         clazz.setExtendedTypes(extendsList);
+
+        LOG.info("Successfully generated REST class: {}", clazz.getNameAsString());
+
         return clazz;
     }
 
     /**
-     * Example : public Response execute(CreateProductRSDto createProductRSDto)
+     * Example : public Response execute(CreateProductRSDTO createProductRSDTO)
      *
-     * @param endPoint
+     * @param endpoint
      * @param clazz
      * @param httpMethod
-     * @param path
-     * @param endPointDtoClass
+     * @param endpointDTOClass
      * @param contentType
      * @return
      */
-    private MethodDeclaration generateRestMethodSignature(Endpoint endPoint, ClassOrInterfaceDeclaration clazz,
-            String httpMethod, String path, String endPointDtoClass, String contentType) {
-        ScriptInstance scriptInstance = scriptInstanceService.findByCode(endPoint.getService().getCode());
+    private MethodDeclaration generateRESTMethodSignature(Endpoint endpoint, ClassOrInterfaceDeclaration clazz,
+            String httpMethod, String endpointDTOClass, String contentType) {
+        ScriptInstance scriptInstance = scriptInstanceService.findByCode(endpoint.getService().getCode());
         MethodDeclaration restMethod = clazz.addMethod("execute", Modifier.Keyword.PUBLIC);
         restMethod.setType("Response");
         restMethod.addMarkerAnnotation(httpMethod);
         StringBuilder pathinfo = new StringBuilder();
 
-        List<TSParameterMapping> parametersMappings = endPoint.getParametersMappingNullSafe();
-        List<EndpointPathParameter> pathParameters = endPoint.getPathParametersNullSafe();
+        List<TSParameterMapping> parametersMappings = endpoint.getParametersMappingNullSafe();
+        List<EndpointPathParameter> pathParameters = endpoint.getPathParametersNullSafe();
 
-        if (endPointDtoClass != null) {
-            restMethod.addParameter(endPointDtoClass, getNonCapitalizeName(endPointDtoClass));
+        if (endpointDTOClass != null) {
+            restMethod.addParameter(endpointDTOClass, getNonCapitalizedName(endpointDTOClass));
         }
-        //parameter :, @PathParam("uuid") String uuid
+
         for (EndpointPathParameter endpointPathParameter : pathParameters) {
             Parameter restMethodParameter = new Parameter();
-            //Identify type of path parameter : @PathParam("uuid") String uuid
+            String parameterName = endpointPathParameter.toString();
             String pathParameterType = scriptInstance.getSetters().stream()
                                                      .filter(p -> p.getName()
-                                                                   .equalsIgnoreCase(endpointPathParameter.toString()))
+                                                                   .equalsIgnoreCase(parameterName))
                                                      .map(p -> p.getType())
                                                      .findFirst().get();
             restMethodParameter.setType(pathParameterType);
-            restMethodParameter.setName(endpointPathParameter.toString());
-            restMethodParameter.addSingleMemberAnnotation("PathParam",
-                    new StringLiteralExpr(endpointPathParameter.toString()));
-            restMethod.addParameter(restMethodParameter);
-            restMethodParameter = null;
+            restMethodParameter.setName(parameterName);
+            restMethodParameter.addSingleMemberAnnotation("PathParam", new StringLiteralExpr(parameterName));
 
-            pathinfo.append("/{").append(endpointPathParameter.toString()).append("}");
+            restMethod.addParameter(restMethodParameter);
+
+            pathinfo.append("/{").append(endpointPathParameter).append("}");
 
         }
-        // @Path("/{uuid}")
+
         if (!pathParameters.isEmpty()) {
             restMethod.addSingleMemberAnnotation("Path", new StringLiteralExpr(pathinfo.toString()));
         }
 
-        if (endPoint.getMethod().getLabel().equalsIgnoreCase("GET")) {
+        if (endpoint.getMethod().getLabel().equalsIgnoreCase("GET")) {
 
             for (TSParameterMapping queryMapping : parametersMappings) {
                 Parameter restMethodParameter = new Parameter();
@@ -554,6 +579,8 @@ public class GenerateJavaEnterpriseApplication extends Script {
             restMethod.addSingleMemberAnnotation("Consumes", "MediaType.APPLICATION_JSON");
         }
 
+        LOG.info("Successfully generated REST method signature: {}", restMethod.getDeclarationAsString(true, true));
+
         return restMethod;
 
     }
@@ -561,55 +588,53 @@ public class GenerateJavaEnterpriseApplication extends Script {
     /**
      * call meveo script setter ,init ,execute,finalize,getResult method
      *
-     * @param endPoint
+     * @param endpoint
      * @param assignmentVariable
      * @param injectedFieldName
-     * @param endPointDtoClass
+     * @param endpointDTOClass
      * @return
      */
-    private Statement generateTryBlock(Endpoint endPoint, VariableDeclarator assignmentVariable,
-            String injectedFieldName, String endPointDtoClass) {
-        BlockStmt tryblock = new BlockStmt();
-        ScriptInstance scriptInstance = scriptInstanceService.findByCode(endPoint.getService().getCode());
+    private Statement generateTryBlock(Endpoint endpoint, VariableDeclarator assignmentVariable,
+            String injectedFieldName, String endpointDTOClass) {
+        BlockStmt tryBlock = new BlockStmt();
 
-        List<TSParameterMapping> parametersMappings = endPoint.getParametersMappingNullSafe();
-        List<EndpointPathParameter> pathParameters = endPoint.getPathParametersNullSafe();
+        List<TSParameterMapping> parametersMappings = endpoint.getParametersMappingNullSafe();
+        List<EndpointPathParameter> pathParameters = endpoint.getPathParametersNullSafe();
 
-        if (endPoint.getMethod().getLabel().equalsIgnoreCase("POST") ||
-                endPoint.getMethod().getLabel().equalsIgnoreCase("PUT")) {
+        String methodLabel = endpoint.getMethod().getLabel();
+        if ("POST".equalsIgnoreCase(methodLabel) || "PUT".equalsIgnoreCase(methodLabel)) {
 
             for (TSParameterMapping queryMapping : parametersMappings) {
-                tryblock.addStatement(new MethodCallExpr(new NameExpr(injectedFieldName),
+                tryBlock.addStatement(new MethodCallExpr(new NameExpr(injectedFieldName),
                         setterMethodCall(queryMapping.getParameterName()))
-                        .addArgument(new MethodCallExpr(new NameExpr(getNonCapitalizeName(endPointDtoClass)),
+                        .addArgument(new MethodCallExpr(new NameExpr(getNonCapitalizedName(endpointDTOClass)),
                                 getterMethodCall(queryMapping.getParameterName()))));
             }
         }
 
-        if (endPoint.getMethod().getLabel().equalsIgnoreCase("GET") ||
-                endPoint.getMethod().getLabel().equalsIgnoreCase("DELETE")) {
+        if (endpoint.getMethod().getLabel().equalsIgnoreCase("GET") ||
+                endpoint.getMethod().getLabel().equalsIgnoreCase("DELETE")) {
 
             for (TSParameterMapping queryMapping : parametersMappings) {
-                tryblock.addStatement(new MethodCallExpr(new NameExpr(injectedFieldName),
+                tryBlock.addStatement(new MethodCallExpr(new NameExpr(injectedFieldName),
                         setterMethodCall(queryMapping.getParameterName()))
                         .addArgument(queryMapping.getParameterName()));
             }
         }
 
         for (EndpointPathParameter pathparam : pathParameters) {
-            tryblock.addStatement(new MethodCallExpr(new NameExpr(injectedFieldName),
+            tryBlock.addStatement(new MethodCallExpr(new NameExpr(injectedFieldName),
                     setterMethodCall(pathparam.getEndpointParameter().getParameter()))
                     .addArgument(pathparam.getEndpointParameter().getParameter()));
         }
 
-        tryblock.addStatement(new MethodCallExpr(new NameExpr(injectedFieldName), "init").addArgument("parameterMap"));
-        tryblock.addStatement(
+        tryBlock.addStatement(new MethodCallExpr(new NameExpr(injectedFieldName), "init").addArgument("parameterMap"));
+        tryBlock.addStatement(
                 new MethodCallExpr(new NameExpr(injectedFieldName), "execute").addArgument("parameterMap"));
-        tryblock.addStatement(
+        tryBlock.addStatement(
                 new MethodCallExpr(new NameExpr(injectedFieldName), "finalize").addArgument("parameterMap"));
-        tryblock.addStatement(assignment(assignmentVariable.getNameAsString(), injectedFieldName, "getResult"));
-        Statement trystatement = addingException(tryblock);
-        return trystatement;
+        tryBlock.addStatement(createAssignment(assignmentVariable.getNameAsString(), injectedFieldName, "getResult"));
+        return addingException(tryBlock);
     }
 
     private ReturnStmt getReturnType() {
@@ -617,16 +642,16 @@ public class GenerateJavaEnterpriseApplication extends Script {
     }
 
     /**
-     * @param --org.meveo.script.CreateMyProduct
-     * @return--CreateMyProduct
+     * @param serviceCode
+     * @return
      */
     private String getServiceCode(String serviceCode) {
         return serviceCode.substring(serviceCode.lastIndexOf(".") + 1);
     }
 
     private Statement addingException(BlockStmt body) {
-        TryStmt ts = new TryStmt();
-        ts.setTryBlock(body);
+        TryStmt tryStmt = new TryStmt();
+        tryStmt.setTryBlock(body);
         CatchClause cc = new CatchClause();
         String exceptionName = "e";
         cc.setParameter(new Parameter().setName(exceptionName).setType(BusinessException.class));
@@ -634,22 +659,20 @@ public class GenerateJavaEnterpriseApplication extends Script {
         cb.addStatement(new ExpressionStmt(
                 new NameExpr("return Response.status(Response.Status.BAD_REQUEST).entity(result).build()")));
         cc.setBody(cb);
-        ts.setCatchClauses(new NodeList<>(cc));
+        tryStmt.setCatchClauses(new NodeList<>(cc));
 
-        return ts;
+        return tryStmt;
     }
 
     /**
-     * Examp:  result = _createMyProduct.getResult();
-     *
-     * @param assignOject : result
-     * @param callOBject  : _createMyProduct
-     * @param methodName  : getResult()
+     * @param assignObject
+     * @param callObject
+     * @param methodName
      * @return
      */
-    private Statement assignment(String assignOject, String callOBject, String methodName) {
-        MethodCallExpr methodCallExpr = new MethodCallExpr(new NameExpr(callOBject), methodName);
-        AssignExpr assignExpr = new AssignExpr(new NameExpr(assignOject), methodCallExpr, AssignExpr.Operator.ASSIGN);
+    private Statement createAssignment(String assignObject, String callObject, String methodName) {
+        MethodCallExpr methodCallExpr = new MethodCallExpr(new NameExpr(callObject), methodName);
+        AssignExpr assignExpr = new AssignExpr(new NameExpr(assignObject), methodCallExpr, AssignExpr.Operator.ASSIGN);
         return new ExpressionStmt(assignExpr);
     }
 
@@ -659,10 +682,10 @@ public class GenerateJavaEnterpriseApplication extends Script {
      */
     private String getNonCapitalizeNameWithPrefix(String className) {
         className = className.replaceAll("[^a-zA-Z0-9]", " ").trim();
-        String prefix = "_";
-        if (className == null || className.length() == 0)
+        if (StringUtils.isEmpty(className)) {
             return className;
-        String objectReferenceName = prefix + className.substring(0, 1).toLowerCase() + className.substring(1);
+        }
+        String objectReferenceName = "_" + className.substring(0, 1).toLowerCase() + className.substring(1);
         return objectReferenceName.trim();
 
     }
@@ -671,34 +694,33 @@ public class GenerateJavaEnterpriseApplication extends Script {
      * input  : CreateMyProduct
      * return : createMyProduct
      */
-    private String getNonCapitalizeName(String className) {
+    private String getNonCapitalizedName(String className) {
         className = className.replaceAll("[^a-zA-Z0-9]", " ").trim();
-        if (className == null || className.length() == 0)
+        if (StringUtils.isEmpty(className)) {
             return className;
+        }
         String objectReferenceName = className.substring(0, 1).toLowerCase() + className.substring(1);
         return objectReferenceName.trim();
 
     }
 
     /*
-     * input  : personname
-     * return : setPersonname
+     * input  : personName
+     * return : setPersonName
      */
     String setterMethodCall(String fieldName) {
         String fieldNameUpper = fieldName.toUpperCase().substring(0, 1) + fieldName.substring(1, fieldName.length());
-        String methodCaller = "set" + fieldNameUpper;
-        return methodCaller;
+        return "set" + fieldNameUpper;
 
     }
 
     /*
-     * input  : personname
-     * return : getPersonname
+     * input  : personName
+     * return : getPersonName
      */
     String getterMethodCall(String fieldName) {
         String fieldNameUpper = fieldName.toUpperCase().substring(0, 1) + fieldName.substring(1, fieldName.length());
-        String methodCaller = "get" + fieldNameUpper;
-        return methodCaller;
+        return "get" + fieldNameUpper;
 
     }
 
@@ -792,6 +814,10 @@ public class GenerateJavaEnterpriseApplication extends Script {
         }
 
         return filesToCommit;
+    }
+
+    private void label(String labelString, Object... params) {
+        LOG.info(DIVIDER + " " + labelString + " " + DIVIDER, params);
     }
 
 }

@@ -1,9 +1,6 @@
 {
-  "code" : "org.meveo.enterpriseapp.GenerateJavaEnterpriseApplication",
-  "inputs" : [ {
-    "name" : "moduleCode",
-    "type" : "String"
-  } ],
+  "code" : "org.meveo.enterpriseapp.ModuleWarGenerator",
+  "inputs" : [ ],
   "outputs" : [ ],
   "generateOutputs" : false,
   "type" : "JAVA",
