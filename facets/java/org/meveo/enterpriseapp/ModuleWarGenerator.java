@@ -103,7 +103,6 @@ public class ModuleWarGenerator extends Script {
             LOG.info("Module: {}, found", module.getCode());
 
             Set<MeveoModuleItem> moduleItems = module.getModuleItems();
-            LOG.info("Custom template: {}", CUSTOM_TEMPLATE);
 
             List<String> entityCodes = moduleItems.stream().filter(item -> CUSTOM_TEMPLATE.equals(item.getItemClass()))
                                                   .map(entity -> entity.getItemCode()).collect(Collectors.toList());
@@ -111,7 +110,6 @@ public class ModuleWarGenerator extends Script {
 
             // SAVE COPY OF MV-TEMPLATE TO MEVEO GIT REPOSITORY
             GitRepository enterpriseAppTemplateRepo = gitRepositoryService.findByCode(JAVA_ENTERPRISE_APP_TEMPLATE);
-            LOG.info("Enterprise App Template Git repo: {}", enterpriseAppTemplateRepo.getRemoteOrigin());
             gitClient.pull(enterpriseAppTemplateRepo, "", "");
 
             File enterpriseAppTemplateDirectory = GitHelper.getRepositoryDir(user, enterpriseAppTemplateRepo);
