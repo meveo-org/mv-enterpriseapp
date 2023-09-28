@@ -65,7 +65,7 @@ public class ModuleWarGenerator extends Script {
     private static final String CUSTOM_ENDPOINT_TEMPLATE = Endpoint.class.getName();
     private static final String CDI_BEAN_FILE = "beans.xml";
     private static final String CUSTOM_ENDPOINT_RESOURCE_FILE = "CustomEndpointResource.java";
-    private static final String MAVEN_EE_POM_FILE = "pom.xml";
+    private static final String POM_XML_FILE = "pom.xml";
     private static final String DEPLOYMENT_SCRIPT_FILE = "moduledeployment.sh";
     private static final String SET_REQUEST_RESPONSE_METHOD = "setRequestResponse";
     private static final String CUSTOM_ENDPOINT_RESOURCE = "CustomEndpointResource";
@@ -196,7 +196,7 @@ public class ModuleWarGenerator extends Script {
 
                 String tagToKeep = "repositories";
                 File moduleDirectory = GitHelper.getRepositoryDir(user, moduleRepo);
-                String pomFilePath = moduleDirectory.getAbsolutePath() + "/facets/maven/pom.xml";
+                String pomFilePath = moduleDirectory.getAbsolutePath() + "/facets/maven/" + POM_XML_FILE;
                 String repositoriesTagContent = copyXmlTagContent(pomFilePath, tagToKeep);
 
                 List<File> templateFiles = templateFileCopy(moduleCode, templatePath,
@@ -207,7 +207,7 @@ public class ModuleWarGenerator extends Script {
             }
 
             if (!filesToCommit.isEmpty()) {
-                gitClient.commitFiles(moduleRepo, filesToCommit, "DTO & Endpoint generation.");
+                gitClient.commitFiles(moduleWARRepo, filesToCommit, "DTO & Endpoint generation.");
             }
 
             generateWAR(generatedFilesDirectory.getAbsolutePath());
@@ -775,7 +775,7 @@ public class ModuleWarGenerator extends Script {
 
                 if (sourcePath.toString().contains(CUSTOM_ENDPOINT_RESOURCE_FILE)
                         || sourcePath.toString().contains(CDI_BEAN_FILE)
-                        || sourcePath.toString().contains(MAVEN_EE_POM_FILE)
+                        || sourcePath.toString().contains(POM_XML_FILE)
                         || sourcePath.toString().contains(DEPLOYMENT_SCRIPT_FILE)) {
 
                     try {
@@ -783,7 +783,7 @@ public class ModuleWarGenerator extends Script {
                         File inputfile = new File(sourcePath.toString());
                         String inputContent = FileUtils.readFileToString(inputfile, StandardCharsets.UTF_8.name());
 
-                        if (sourcePath.toString().contains(MAVEN_EE_POM_FILE)) {
+                        if (sourcePath.toString().contains(POM_XML_FILE)) {
                             String outputContent = inputContent
                                     .replace("__MODULE_ARTIFACT_ID__", moduleCode)
                                     .replace("__MODULE_VERSION__", MODULE_VERSION)
