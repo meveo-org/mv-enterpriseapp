@@ -314,7 +314,7 @@ public class ModuleWarGenerator extends Script {
     String generateEndpointDTO(String moduleCode, Endpoint endpoint, String endpointDTOClass) {
         CompilationUnit compilationUnit = new CompilationUnit();
         ScriptInstance scriptInstance = scriptInstanceService.findByCode(endpoint.getService().getCode());
-        StringBuilder dtoPackage = new StringBuilder("org.meveo.").append(moduleCode).append(".dto");
+        StringBuilder dtoPackage = new StringBuilder("org.meveo.").append(toCamelCase(moduleCode)).append(".dto");
         compilationUnit.setPackageDeclaration(dtoPackage.toString());
         compilationUnit.getImports()
                        .add(new ImportDeclaration(new Name("org.meveo.model.customEntities"), false, true));
@@ -392,7 +392,7 @@ public class ModuleWarGenerator extends Script {
         String serviceCode = getServiceCode(endpoint.getService().getCode());
 
         CompilationUnit cu = new CompilationUnit();
-        String modulePackage = "org.meveo." + moduleCode;
+        String modulePackage = "org.meveo." + toCamelCase(moduleCode);
         String resourcePackage = modulePackage + ".resource";
         cu.setPackageDeclaration(resourcePackage);
         cu.getImports().add(new ImportDeclaration(new Name("java.time"), false, true));
