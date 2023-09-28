@@ -1,5 +1,7 @@
 package org.meveo.enterpriseapp;
 
+import static org.apache.commons.lang3.StringUtils.*;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -45,7 +47,6 @@ import com.github.javaparser.ast.expr.*;
 import com.github.javaparser.ast.stmt.*;
 import com.github.javaparser.ast.type.ClassOrInterfaceType;
 import org.apache.commons.io.FileUtils;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.maven.shared.invoker.DefaultInvocationRequest;
 import org.apache.maven.shared.invoker.DefaultInvoker;
 import org.apache.maven.shared.invoker.InvocationRequest;
@@ -58,10 +59,10 @@ public class ModuleWarGenerator extends Script {
 
     private static final String PATH_SEPARATORS = "/\\";
     private static final String MEVEO_BRANCH = "meveo";
-    private static final String MV_TEMPLATE_REPO = "https://github.com/meveo-org/module-war-template.git";
+    private static final String MODULE_WAR_TEMPLATE_CODE = "module-war-template";
+    private static final String MODULE_WAR_TEMPLATE_REPO = "https://github.com/meveo-org/module-war-template.git";
     private static final String CUSTOM_TEMPLATE = CustomEntityTemplate.class.getName();
     private static final String CUSTOM_ENDPOINT_TEMPLATE = Endpoint.class.getName();
-    private static final String JAVA_ENTERPRISE_APP_TEMPLATE = JavaEnterpriseApp.class.getSimpleName();
     private static final String CDI_BEAN_FILE = "beans.xml";
     private static final String CUSTOM_ENDPOINT_RESOURCE_FILE = "CustomEndpointResource.java";
     private static final String MAVEN_EE_POM_FILE = "pom.xml";
@@ -70,7 +71,7 @@ public class ModuleWarGenerator extends Script {
     private static final String CUSTOM_ENDPOINT_RESOURCE = "CustomEndpointResource";
     private static final String CUSTOM_ENDPOINT_BASE_RESOURCE_PACKAGE = "org.meveo.base.CustomEndpointResource";
     private static final String MODULE_VERSION = "1.0.0";
-    private static final String DIVIDER = StringUtils.repeat("-", 15);
+    private static final String DIVIDER = repeat("-", 15);
 
     private final ParamBeanFactory paramBeanFactory = getCDIBean(ParamBeanFactory.class);
     private final ParamBean config = paramBeanFactory.getInstance();
@@ -90,7 +91,7 @@ public class ModuleWarGenerator extends Script {
         JavaEnterpriseApp javaEnterpriseApp = CEIUtils.ceiToPojo(cei, JavaEnterpriseApp.class);
         String moduleCode = javaEnterpriseApp.getCode();
 
-        if (StringUtils.isEmpty(moduleCode)) {
+        if (isEmpty(moduleCode)) {
             throw new BusinessException("No module code was provided.");
         }
 
@@ -103,50 +104,40 @@ public class ModuleWarGenerator extends Script {
             LOG.info("Module: {}, found", module.getCode());
 
             Set<MeveoModuleItem> moduleItems = module.getModuleItems();
-
             List<String> entityCodes = moduleItems.stream().filter(item -> CUSTOM_TEMPLATE.equals(item.getItemClass()))
                                                   .map(MeveoModuleItem::getItemCode).collect(Collectors.toList());
             LOG.info("Entity codes: {}", entityCodes);
 
-            GitRepository templateRepository = gitRepositoryService.findByCode(JAVA_ENTERPRISE_APP_TEMPLATE);
-            if (templateRepository == null) {
-                LOG.info("Create module template repository: {}", JAVA_ENTERPRISE_APP_TEMPLATE);
-                templateRepository = new GitRepository();
-                templateRepository.setCode(JAVA_ENTERPRISE_APP_TEMPLATE);
-                templateRepository.setDescription(JAVA_ENTERPRISE_APP_TEMPLATE + " Template repository");
-                templateRepository.setRemoteOrigin(MV_TEMPLATE_REPO);
-                templateRepository.setDefaultRemoteUsername("");
-                templateRepository.setDefaultRemotePassword("");
-                gitRepositoryService.create(templateRepository);
-            } else {
-                gitClient.pull(templateRepository, "", "");
-                LOG.info("Successfully updated module template repository: {}", JAVA_ENTERPRISE_APP_TEMPLATE);
-            }
+            GitRepository templateRepository = getGitRepository(MODULE_WAR_TEMPLATE_CODE, MODULE_WAR_TEMPLATE_REPO);
             File templateDirectory = GitHelper.getRepositoryDir(user, templateRepository);
             Path templatePath = templateDirectory.toPath();
             LOG.info("Module template path: {}", templatePath);
 
-            GitRepository generatedFilesRepo = gitRepositoryService.findByCode(moduleCode);
-            gitClient.checkout(generatedFilesRepo, MEVEO_BRANCH, true);
-            File generatedFilesDirectory = GitHelper.getRepositoryDir(user, generatedFilesRepo);
+            GitRepository moduleRepo = gitRepositoryService.findByCode(moduleCode);
+            gitClient.checkout(moduleRepo, MEVEO_BRANCH, true);
+
+            String moduleWARCode = moduleCode + "-war";
+            GitRepository moduleWARRepo = getGitRepository(moduleWARCode, null);
+
+            File generatedFilesDirectory = GitHelper.getRepositoryDir(user, moduleWARRepo);
             Path generatedFilesPath = generatedFilesDirectory.toPath();
             String pomFilePath = generatedFilesDirectory.getAbsolutePath() + "/facets/maven/pom.xml";
             LOG.info("Added POM file: {}", pomFilePath);
 
-            List<File> filesToCommit = new ArrayList<>();
             String basePath = config.getProperty("providers.rootDir", "./meveodata/");
             basePath = (new File(basePath)).getAbsolutePath().replaceAll("/\\./", "/");
-            basePath = StringUtils.stripEnd(basePath, PATH_SEPARATORS);
-            basePath = StringUtils.stripEnd(basePath, ".");
+            basePath = stripEnd(basePath, PATH_SEPARATORS);
+            basePath = stripEnd(basePath, ".");
             LOG.info("Meveo data path: {}", basePath);
 
             String normalizedCode = toPascalCase(moduleCode);
 
             label("RESTConfiguration file generation");
-            String restConfigurationPath = "facets/javaee/org/meveo/" + normalizedCode + "/rest/"
-                    + normalizedCode + "RestConfig" + ".java";
+            String restConfigurationPath = "facets/javaee/org/meveo/" + normalizedCode
+                    + "/rest/" + normalizedCode + "RestConfig" + ".java";
             LOG.info("Rest configuration file: {}", restConfigurationPath);
 
+            List<File> filesToCommit = new ArrayList<>();
             try {
 
                 File restConfigfile = new File(generatedFilesDirectory, restConfigurationPath);
@@ -216,7 +207,7 @@ public class ModuleWarGenerator extends Script {
             }
 
             if (!filesToCommit.isEmpty()) {
-                gitClient.commitFiles(generatedFilesRepo, filesToCommit, "DTO & Endpoint generation.");
+                gitClient.commitFiles(moduleRepo, filesToCommit, "DTO & Endpoint generation.");
             }
 
             generateWAR(generatedFilesDirectory.getAbsolutePath());
@@ -226,6 +217,29 @@ public class ModuleWarGenerator extends Script {
         }
 
         label("ModuleWarGenerator.execute() - DONE");
+    }
+
+    private GitRepository getGitRepository(String code, String origin) throws BusinessException {
+        GitRepository gitRepository = gitRepositoryService.findByCode(code);
+        if (gitRepository == null) {
+            LOG.info("Create module template repository: {}", code);
+            gitRepository = new GitRepository();
+            gitRepository.setCode(code);
+            gitRepository.setDescription(code + " repository");
+            gitRepository.setRemoteOrigin(origin);
+            gitRepository.setDefaultRemoteUsername("");
+            gitRepository.setDefaultRemotePassword("");
+            gitRepositoryService.create(gitRepository);
+        } else {
+            String remoteOrigin = gitRepository.getRemoteOrigin();
+            if (isNotEmpty(remoteOrigin)) {
+                gitClient.pull(gitRepository, "", "");
+                LOG.info("Successfully updated repository: {}", code);
+            } else {
+                LOG.info("Git repository: {}, does not have a remote origin.", gitRepository.getCode());
+            }
+        }
+        return gitRepository;
     }
 
     /*
@@ -251,7 +265,7 @@ public class ModuleWarGenerator extends Script {
         } else if (System.getenv("MVN_HOME") != null) {
             mvnHome = System.getenv("MVN_HOME");
         }
-        if (StringUtils.isEmpty(mvnHome)) {
+        if (isEmpty(mvnHome)) {
             throw new BusinessException("Failed to retrieve Maven home path");
         }
 
@@ -357,8 +371,7 @@ public class ModuleWarGenerator extends Script {
         compilationUnit.getImports().add(new ImportDeclaration(new Name("javax.ws.rs.core.Application"), false, false));
 
         String className = moduleCode + "RestConfig";
-        ClassOrInterfaceDeclaration classDeclaration = compilationUnit.addClass(className)
-                                                                      .setPublic(true);
+        ClassOrInterfaceDeclaration classDeclaration = compilationUnit.addClass(className).setPublic(true);
         classDeclaration.addSingleMemberAnnotation("ApplicationPath", new StringLiteralExpr("rest"));
 
         NodeList<ClassOrInterfaceType> extendsList = new NodeList<>();
