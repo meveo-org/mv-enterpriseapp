@@ -120,6 +120,8 @@ public class ModuleWarGenerator extends Script {
             String moduleWARCode = moduleCode + "-war";
             GitRepository moduleWARRepo = getGitRepository(moduleWARCode, null);
             File generatedFilesDirectory = GitHelper.getRepositoryDir(user, moduleWARRepo);
+            Path generatedFilesPath = generatedFilesDirectory.toPath();
+            LOG.info("Loaded module war directory: {}", generatedFilesPath);
             if (FileUtils.sizeOfDirectory(generatedFilesDirectory) > 0) {
                 try {
                     FileUtils.cleanDirectory(generatedFilesDirectory);
@@ -127,7 +129,6 @@ public class ModuleWarGenerator extends Script {
                     throw new BusinessException("Failed to clean module war directory", e);
                 }
             }
-            Path generatedFilesPath = generatedFilesDirectory.toPath();
 
             List<File> filesToCommit = new ArrayList<>();
             Path moduleSourceDirectory = Paths.get(moduleDirectory.getAbsolutePath() + "/facets/java");
