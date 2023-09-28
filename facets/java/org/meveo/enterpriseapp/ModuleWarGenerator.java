@@ -118,13 +118,15 @@ public class ModuleWarGenerator extends Script {
             File moduleDirectory = GitHelper.getRepositoryDir(user, moduleRepo);
 
             String moduleWARCode = moduleCode + "-war";
-            GitRepository gitRepository = gitRepositoryService.findByCode(moduleWARCode);
-            if(gitRepository != null){
-                gitRepositoryService.remove(gitRepository);
-            }
-
             GitRepository moduleWARRepo = getGitRepository(moduleWARCode, null);
             File generatedFilesDirectory = GitHelper.getRepositoryDir(user, moduleWARRepo);
+            if (FileUtils.sizeOfDirectory(generatedFilesDirectory) > 0) {
+                try {
+                    FileUtils.cleanDirectory(generatedFilesDirectory);
+                } catch (IOException e) {
+                    throw new BusinessException("Failed to clean module war directory", e);
+                }
+            }
             Path generatedFilesPath = generatedFilesDirectory.toPath();
 
             List<File> filesToCommit = new ArrayList<>();
