@@ -1,5 +1,7 @@
 package org.meveo.enterpriseapp;
 
+import static java.nio.file.StandardCopyOption.COPY_ATTRIBUTES;
+import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static org.apache.commons.lang3.StringUtils.*;
 
 import java.io.File;
@@ -113,6 +115,7 @@ public class ModuleWarGenerator extends Script {
             LOG.info("Module template path: {}", templatePath);
 
             GitRepository moduleRepo = gitRepositoryService.findByCode(moduleCode);
+            File moduleDirectory = GitHelper.getRepositoryDir(user, moduleRepo);
 
             String moduleWARCode = moduleCode + "-war";
             GitRepository moduleWARRepo = getGitRepository(moduleWARCode, null);
@@ -157,13 +160,12 @@ public class ModuleWarGenerator extends Script {
                 endpointDTOClass = null;
                 Endpoint endpoint = endpointService.findByCode(endpointCode);
                 if (!endpoint.getParametersMappingNullSafe().isEmpty()) {
-                    if (endpoint.getMethod().getLabel().equalsIgnoreCase("POST") ||
-                            endpoint.getMethod().getLabel().equalsIgnoreCase("PUT")) {
+                    String methodLabel = endpoint.getMethod().getLabel();
+                    if ("POST".equalsIgnoreCase(methodLabel) || "PUT".equalsIgnoreCase(methodLabel)) {
                         label("Endpoint DTO class generation");
                         endpointDTOClass = toPascalCase(endpoint.getCode()) + "DTO";
-                        String dtoFilePath = "src/main/java/org/meveo/" + normalizedCode
+                        String dtoFilePath = "src/main/java/org/meveo/" + toCamelCase(normalizedCode)
                                 + "/dto/" + endpointDTOClass + ".java";
-                        LOG.info("Generating endpoint DTO class: {}", dtoFilePath);
                         try {
                             File dtoFile = new File(generatedFilesDirectory, dtoFilePath);
                             String dtoContent = generateEndpointDTO(normalizedCode, endpoint, endpointDTOClass);
@@ -178,7 +180,7 @@ public class ModuleWarGenerator extends Script {
                 }
 
                 label("Endpoint Class Generation");
-                String endpointClassPath = "src/main/java/org/meveo/" + normalizedCode
+                String endpointClassPath = "src/main/java/org/meveo/" + toCamelCase(normalizedCode)
                         + "/resource/" + toPascalCase(endpoint.getCode()) + ".java";
                 LOG.info("Generating endpoint class: {}", endpointClassPath);
 
@@ -193,7 +195,7 @@ public class ModuleWarGenerator extends Script {
                 }
 
                 String tagToKeep = "repositories";
-                File moduleDirectory = GitHelper.getRepositoryDir(user, moduleRepo);
+
                 String pomFilePath = moduleDirectory.getAbsolutePath() + "/facets/maven/" + POM_XML_FILE;
                 String repositoriesTagContent = copyXmlTagContent(pomFilePath, tagToKeep);
 
@@ -202,6 +204,26 @@ public class ModuleWarGenerator extends Script {
                 LOG.info("Successfully copied the following files from the template: {}",
                         templateFiles.stream().map(File::getPath).collect(Collectors.toList()));
                 filesToCommit.addAll(templateFiles);
+            }
+
+            Path moduleSourceDirectory = Paths.get(moduleDirectory.getAbsolutePath() + "/facets/java");
+            Path moduleWARSourceDirectory = Paths.get(generatedFilesDirectory.getAbsolutePath() + "/src/main/java");
+            try (Stream<Path> sourceStream = Files.walk(moduleSourceDirectory)) {
+                List<Path> sources = sourceStream.collect(Collectors.toList());
+                List<Path> destinations = sources.stream()
+                                                 .map(moduleSourceDirectory::relativize)
+                                                 .map(moduleWARSourceDirectory::resolve)
+                                                 .collect(Collectors.toList());
+                for (int index = 0; index < sources.size(); index++) {
+                    Path sourcePath = sources.get(index);
+                    Path destinationPath = destinations.get(index);
+                    Files.copy(sourcePath, destinationPath, REPLACE_EXISTING, COPY_ATTRIBUTES);
+                    File destinationFile = destinationPath.toFile();
+                    LOG.info("Successfully copied: {} to: {}", sourcePath, destinationPath);
+                    filesToCommit.add(destinationFile);
+                }
+            } catch (IOException e) {
+                throw new BusinessException("Failed to copy files from module repo to module war repo.", e);
             }
 
             if (!filesToCommit.isEmpty()) {
