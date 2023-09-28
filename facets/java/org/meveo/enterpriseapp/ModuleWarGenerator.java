@@ -58,7 +58,6 @@ public class ModuleWarGenerator extends Script {
     private static final Logger LOG = LoggerFactory.getLogger(ModuleWarGenerator.class);
 
     private static final String PATH_SEPARATORS = "/\\";
-    private static final String MEVEO_BRANCH = "meveo";
     private static final String MODULE_WAR_TEMPLATE_CODE = "module-war-template";
     private static final String MODULE_WAR_TEMPLATE_REPO = "https://github.com/meveo-org/module-war-template.git";
     private static final String CUSTOM_TEMPLATE = CustomEntityTemplate.class.getName();
@@ -114,7 +113,6 @@ public class ModuleWarGenerator extends Script {
             LOG.info("Module template path: {}", templatePath);
 
             GitRepository moduleRepo = gitRepositoryService.findByCode(moduleCode);
-            gitClient.checkout(moduleRepo, MEVEO_BRANCH, true);
 
             String moduleWARCode = moduleCode + "-war";
             GitRepository moduleWARRepo = getGitRepository(moduleWARCode, null);
