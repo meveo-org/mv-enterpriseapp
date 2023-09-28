@@ -246,10 +246,10 @@ public class ModuleWarGenerator extends Script {
      * Generate module war file in local repo folder
      */
     private void generateWAR(String modulePath) throws BusinessException {
-        String mavenDirectory = modulePath + "/facets/maven";
         String sourcePath = modulePath + "/facets/java";
+        String mavenDirectory = modulePath + "/facets/maven";
         String mavenSourcePath = mavenDirectory + "/src/main/java";
-        symbolicLinkCreation(sourcePath, mavenSourcePath);
+        createSymbolicLink(sourcePath, mavenSourcePath);
 
         String mvnHome = null;
 
@@ -287,7 +287,7 @@ public class ModuleWarGenerator extends Script {
     /*
      * Create Symbolic link for Java , JavaEE folder
      */
-    private void symbolicLinkCreation(String targetFilePath, String symbolicLinkPath) {
+    private void createSymbolicLink(String targetFilePath, String symbolicLinkPath) {
         try {
             Path path = Paths.get(symbolicLinkPath);
             if (Files.exists(path)) {
@@ -297,7 +297,7 @@ public class ModuleWarGenerator extends Script {
             Path target = FileSystems.getDefault().getPath(targetFilePath);
             Path link = FileSystems.getDefault().getPath(symbolicLinkPath);
             Files.createSymbolicLink(link, target);
-            LOG.info("Symbolic link: {} to: {}, successfully created.", link.toString(), target.toString());
+            LOG.info("Symbolic link: {} to: {}, successfully created.", link, target);
         } catch (IOException e) {
             LOG.error("Failed to create symbolic link: {} => {}", targetFilePath, symbolicLinkPath, e);
         }
