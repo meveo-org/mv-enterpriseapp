@@ -129,7 +129,7 @@ public class ModuleWarGenerator extends Script {
             String normalizedCode = toPascalCase(moduleCode);
 
             label("RESTConfiguration file generation");
-            String restConfigurationPath = "facets/java/org/meveo/" + normalizedCode
+            String restConfigurationPath = "src/main/java/org/meveo/" + normalizedCode
                     + "/rest/" + normalizedCode + "RestConfig" + ".java";
             LOG.info("Rest configuration file: {}", restConfigurationPath);
 
@@ -161,7 +161,7 @@ public class ModuleWarGenerator extends Script {
                             endpoint.getMethod().getLabel().equalsIgnoreCase("PUT")) {
                         label("Endpoint DTO class generation");
                         endpointDTOClass = toPascalCase(endpoint.getCode()) + "DTO";
-                        String dtoFilePath = "facets/java/org/meveo/" + normalizedCode
+                        String dtoFilePath = "src/main/java/org/meveo/" + normalizedCode
                                 + "/dto/" + endpointDTOClass + ".java";
                         LOG.info("Generating endpoint DTO class: {}", dtoFilePath);
                         try {
@@ -178,7 +178,7 @@ public class ModuleWarGenerator extends Script {
                 }
 
                 label("Endpoint Class Generation");
-                String endpointClassPath = "facets/java/org/meveo/" + normalizedCode
+                String endpointClassPath = "src/main/java/org/meveo/" + normalizedCode
                         + "/resource/" + toPascalCase(endpoint.getCode()) + ".java";
                 LOG.info("Generating endpoint class: {}", endpointClassPath);
 
@@ -244,11 +244,6 @@ public class ModuleWarGenerator extends Script {
      * Generate module war file in local repo folder
      */
     private void generateWAR(String modulePath) throws BusinessException {
-        String sourcePath = modulePath + "/facets/java";
-        String mavenDirectory = modulePath + "/facets/maven";
-        String mavenSourcePath = mavenDirectory + "/src/main/java";
-        createSymbolicLink(sourcePath, mavenSourcePath);
-
         String mvnHome = null;
 
         if (System.getenv("MAVEN_HOME") != null) {
@@ -263,7 +258,7 @@ public class ModuleWarGenerator extends Script {
         }
 
         LOG.info("Maven Home path: {}", mvnHome);
-        runMaven(mavenDirectory, mvnHome, "clean", "package");
+        runMaven(modulePath, mvnHome, "clean", "package");
     }
 
     private void runMaven(String mavenEEDirectory, String mvnHome, String... targets) throws BusinessException {
