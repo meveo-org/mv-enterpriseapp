@@ -125,8 +125,7 @@ public class ModuleWarGenerator extends Script {
 
             if (generatedFilesDirectory.exists()) {
                 try {
-                    FileUtils.deleteDirectory(generatedFilesDirectory);
-                    Files.createDirectories(generatedFilesPath);
+                    FileUtils.cleanDirectory(generatedFilesDirectory);
                 } catch (IOException e) {
                     throw new BusinessException("Failed to delete and recreate module war repo folder");
                 }
