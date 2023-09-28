@@ -118,18 +118,14 @@ public class ModuleWarGenerator extends Script {
             File moduleDirectory = GitHelper.getRepositoryDir(user, moduleRepo);
 
             String moduleWARCode = moduleCode + "-war";
-            GitRepository moduleWARRepo = getGitRepository(moduleWARCode, null);
+            GitRepository gitRepository = gitRepositoryService.findByCode(moduleWARCode);
+            if(gitRepository != null){
+                gitRepositoryService.remove(gitRepository);
+            }
 
+            GitRepository moduleWARRepo = getGitRepository(moduleWARCode, null);
             File generatedFilesDirectory = GitHelper.getRepositoryDir(user, moduleWARRepo);
             Path generatedFilesPath = generatedFilesDirectory.toPath();
-
-            if (generatedFilesDirectory.exists()) {
-                try {
-                    FileUtils.cleanDirectory(generatedFilesDirectory);
-                } catch (IOException e) {
-                    throw new BusinessException("Failed to delete and recreate module war repo folder");
-                }
-            }
 
             List<File> filesToCommit = new ArrayList<>();
             Path moduleSourceDirectory = Paths.get(moduleDirectory.getAbsolutePath() + "/facets/java");
