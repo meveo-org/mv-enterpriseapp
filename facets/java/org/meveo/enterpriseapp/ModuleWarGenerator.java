@@ -123,6 +123,15 @@ public class ModuleWarGenerator extends Script {
             File generatedFilesDirectory = GitHelper.getRepositoryDir(user, moduleWARRepo);
             Path generatedFilesPath = generatedFilesDirectory.toPath();
 
+            if (generatedFilesDirectory.exists()) {
+                try {
+                    FileUtils.deleteDirectory(generatedFilesDirectory);
+                    Files.createDirectories(generatedFilesPath);
+                } catch (IOException e) {
+                    throw new BusinessException("Failed to delete and recreate module war repo folder");
+                }
+            }
+
             String basePath = config.getProperty("providers.rootDir", "./meveodata/");
             basePath = (new File(basePath)).getAbsolutePath().replaceAll("/\\./", "/");
             basePath = stripEnd(basePath, PATH_SEPARATORS);
