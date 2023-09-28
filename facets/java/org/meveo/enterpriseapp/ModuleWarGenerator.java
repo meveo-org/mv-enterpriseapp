@@ -147,6 +147,7 @@ public class ModuleWarGenerator extends Script {
                     File sourceFile = sourcePath.toFile();
                     File destinationFile = destinationPath.toFile();
                     if (sourceFile.isDirectory()) {
+                        Files.createDirectories(destinationFile.toPath());
                         continue;
                     }
                     Files.copy(sourcePath, destinationPath, REPLACE_EXISTING, COPY_ATTRIBUTES);
@@ -157,12 +158,6 @@ public class ModuleWarGenerator extends Script {
                 throw new BusinessException("Failed to copy files from module repo to module war repo.", e);
             }
 
-            String basePath = config.getProperty("providers.rootDir", "./meveodata/");
-            basePath = (new File(basePath)).getAbsolutePath().replaceAll("/\\./", "/");
-            basePath = stripEnd(basePath, PATH_SEPARATORS);
-            basePath = stripEnd(basePath, ".");
-            LOG.info("Meveo data path: {}", basePath);
-
             String normalizedCode = toPascalCase(moduleCode);
 
             label("RESTConfiguration file generation");
@@ -170,7 +165,6 @@ public class ModuleWarGenerator extends Script {
                     + "/rest/" + normalizedCode + "RestConfig" + ".java";
             LOG.info("Rest configuration file: {}", restConfigurationPath);
             try {
-
                 File restConfigfile = new File(generatedFilesDirectory, restConfigurationPath);
                 String restConfigurationFileContent = generateRESTConfigurationClass(normalizedCode);
                 FileUtils.write(restConfigfile, restConfigurationFileContent, StandardCharsets.UTF_8);
@@ -249,6 +243,13 @@ public class ModuleWarGenerator extends Script {
         }
 
         label("ModuleWarGenerator.execute() - DONE");
+    }
+
+    private static String normalizePath(String path) {
+        path = (new File(path)).getAbsolutePath().replaceAll("/\\./", "/");
+        path = stripEnd(path, PATH_SEPARATORS);
+        path = stripEnd(path, ".");
+        return path;
     }
 
     private GitRepository getGitRepository(String code, String origin) throws BusinessException {
