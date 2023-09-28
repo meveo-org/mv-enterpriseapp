@@ -131,7 +131,7 @@ public class ModuleWarGenerator extends Script {
             String normalizedCode = toPascalCase(moduleCode);
 
             label("RESTConfiguration file generation");
-            String restConfigurationPath = "facets/javaee/org/meveo/" + normalizedCode
+            String restConfigurationPath = "facets/java/org/meveo/" + normalizedCode
                     + "/rest/" + normalizedCode + "RestConfig" + ".java";
             LOG.info("Rest configuration file: {}", restConfigurationPath);
 
@@ -163,7 +163,7 @@ public class ModuleWarGenerator extends Script {
                             endpoint.getMethod().getLabel().equalsIgnoreCase("PUT")) {
                         label("Endpoint DTO class generation");
                         endpointDTOClass = toPascalCase(endpoint.getCode()) + "DTO";
-                        String dtoFilePath = "facets/javaee/org/meveo/" + normalizedCode
+                        String dtoFilePath = "facets/java/org/meveo/" + normalizedCode
                                 + "/dto/" + endpointDTOClass + ".java";
                         LOG.info("Generating endpoint DTO class: {}", dtoFilePath);
                         try {
@@ -180,7 +180,7 @@ public class ModuleWarGenerator extends Script {
                 }
 
                 label("Endpoint Class Generation");
-                String endpointClassPath = "facets/javaee/org/meveo/" + normalizedCode
+                String endpointClassPath = "facets/java/org/meveo/" + normalizedCode
                         + "/resource/" + toPascalCase(endpoint.getCode()) + ".java";
                 LOG.info("Generating endpoint class: {}", endpointClassPath);
 
@@ -246,15 +246,10 @@ public class ModuleWarGenerator extends Script {
      * Generate module war file in local repo folder
      */
     private void generateWAR(String modulePath) throws BusinessException {
-        String mavenEEDirectory = modulePath + "/facets/mavenee";
-
-        String javaPath = modulePath + "/facets/java";
-        String mavenEEJavaPath = mavenEEDirectory + "/src/main/java";
-        symbolicLinkCreation(javaPath, mavenEEJavaPath);
-
-        String javaEEPath = modulePath + "/facets/javaee";
-        String mavenEEJavaEEPath = mavenEEDirectory + "/src/main/javaee";
-        symbolicLinkCreation(javaEEPath, mavenEEJavaEEPath);
+        String mavenDirectory = modulePath + "/facets/maven";
+        String sourcePath = modulePath + "/facets/java";
+        String mavenSourcePath = mavenDirectory + "/src/main/java";
+        symbolicLinkCreation(sourcePath, mavenSourcePath);
 
         String mvnHome = null;
 
@@ -270,7 +265,7 @@ public class ModuleWarGenerator extends Script {
         }
 
         LOG.info("Maven Home path: {}", mvnHome);
-        runMaven(mavenEEDirectory, mvnHome, "clean", "package");
+        runMaven(mavenDirectory, mvnHome, "clean", "package");
     }
 
     private void runMaven(String mavenEEDirectory, String mvnHome, String... targets) throws BusinessException {
@@ -284,7 +279,7 @@ public class ModuleWarGenerator extends Script {
             label("Executing maven {} using pom.xml in: {}", targets, mavenEEDirectory);
             invoker.execute(request);
         } catch (MavenInvocationException e) {
-            LOG.error("Failed to mvn package for mavenee pom.xml", e);
+            LOG.error("Failed to mvn package for maven pom.xml", e);
             throw new BusinessException("Failed creating file." + e.getMessage());
         }
     }
