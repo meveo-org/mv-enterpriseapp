@@ -120,11 +120,14 @@ public class ModuleWarGenerator extends Script {
             String moduleWARCode = moduleCode + "-war";
             GitRepository moduleWARRepo = getGitRepository(moduleWARCode, null);
             File moduleWARDirectory = GitHelper.getRepositoryDir(user, moduleWARRepo);
-            Path generatedFilesPath = moduleWARDirectory.toPath();
-            try {
-                Files.deleteIfExists(Path.of(moduleWARDirectory.getAbsolutePath() + "/src"));
-            } catch (IOException e) {
-                throw new BusinessException("Failed to delete module war source directory", e);
+            Path moduleWARPath = moduleWARDirectory.toPath();
+            File moduleWARSource = new File(moduleWARDirectory.getAbsolutePath() + "/src");
+            if (moduleWARSource.exists() && moduleWARSource.isDirectory()) {
+                try {
+                    FileUtils.deleteDirectory(moduleWARSource);
+                } catch (IOException e) {
+                    throw new BusinessException("Failed to delete module war source directory", e);
+                }
             }
 
             List<File> filesToCommit = new ArrayList<>();
@@ -221,7 +224,7 @@ public class ModuleWarGenerator extends Script {
                 String repositoriesTagContent = copyXmlTagContent(pomFilePath, tagToKeep);
 
                 List<File> templateFiles = templateFileCopy(moduleCode, templatePath,
-                        generatedFilesPath, repositoriesTagContent);
+                        moduleWARPath, repositoriesTagContent);
                 LOG.info("Successfully copied the following files from the template: {}",
                         templateFiles.stream().map(File::getPath).collect(Collectors.toList()));
                 filesToCommit.addAll(templateFiles);
