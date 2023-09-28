@@ -226,16 +226,15 @@ public class ModuleWarGenerator extends Script {
                 for (int index = 0; index < sources.size(); index++) {
                     Path sourcePath = sources.get(index);
                     Path destinationPath = destinations.get(index);
-                    File sourceFile = sourcePath.toFile();
-                    if (sourceFile.exists() && sourceFile.isDirectory()) {
-                        boolean hasFiles = FileUtils.sizeOfDirectory(sourceFile) > 0;
+                    File destinationFile = destinationPath.toFile();
+                    if (destinationFile.exists()) {
+                        boolean hasFiles = FileUtils.sizeOfDirectory(destinationFile) > 0;
                         if (hasFiles) {
-                            LOG.info("Directory: {} contains files, moving on to next file.", sourceFile);
+                            LOG.info("Directory: {} contains files, moving on to next file.", destinationFile);
                             continue;
                         }
                     }
                     Files.copy(sourcePath, destinationPath, REPLACE_EXISTING, COPY_ATTRIBUTES);
-                    File destinationFile = destinationPath.toFile();
                     LOG.info("Successfully copied: {} to: {}", sourcePath, destinationPath);
                     filesToCommit.add(destinationFile);
                 }
