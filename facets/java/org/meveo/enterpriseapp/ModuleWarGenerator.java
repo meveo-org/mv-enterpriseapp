@@ -119,20 +119,17 @@ public class ModuleWarGenerator extends Script {
 
             String moduleWARCode = moduleCode + "-war";
             GitRepository moduleWARRepo = getGitRepository(moduleWARCode, null);
-            File generatedFilesDirectory = GitHelper.getRepositoryDir(user, moduleWARRepo);
-            Path generatedFilesPath = generatedFilesDirectory.toPath();
-            LOG.info("Loaded module war directory: {}", generatedFilesPath);
-            if (FileUtils.sizeOfDirectory(generatedFilesDirectory) > 0) {
-                try {
-                    FileUtils.cleanDirectory(generatedFilesDirectory);
-                } catch (IOException e) {
-                    throw new BusinessException("Failed to clean module war directory", e);
-                }
+            File moduleWARDirectory = GitHelper.getRepositoryDir(user, moduleWARRepo);
+            Path generatedFilesPath = moduleWARDirectory.toPath();
+            try {
+                Files.deleteIfExists(Path.of(moduleWARDirectory.getAbsolutePath() + "/src"));
+            } catch (IOException e) {
+                throw new BusinessException("Failed to delete module war source directory", e);
             }
 
             List<File> filesToCommit = new ArrayList<>();
             Path moduleSourceDirectory = Paths.get(moduleDirectory.getAbsolutePath() + "/facets/java");
-            Path moduleWARSourceDirectory = Paths.get(generatedFilesDirectory.getAbsolutePath() + "/src/main/java");
+            Path moduleWARSourceDirectory = Paths.get(moduleWARDirectory.getAbsolutePath() + "/src/main/java");
             try (Stream<Path> sourceStream = Files.walk(moduleSourceDirectory)) {
                 List<Path> sources = sourceStream.collect(Collectors.toList());
                 List<Path> destinations = sources.stream()
@@ -163,7 +160,7 @@ public class ModuleWarGenerator extends Script {
                     + "/rest/" + normalizedCode + "RestConfig" + ".java";
             LOG.info("Rest configuration file: {}", restConfigurationPath);
             try {
-                File restConfigfile = new File(generatedFilesDirectory, restConfigurationPath);
+                File restConfigfile = new File(moduleWARDirectory, restConfigurationPath);
                 String restConfigurationFileContent = generateRESTConfigurationClass(normalizedCode);
                 FileUtils.write(restConfigfile, restConfigurationFileContent, StandardCharsets.UTF_8);
                 LOG.info("Successfully created rest configuration file: {}", restConfigfile.getPath());
@@ -191,7 +188,7 @@ public class ModuleWarGenerator extends Script {
                         String dtoFilePath = "src/main/java/org/meveo/" + toCamelCase(normalizedCode)
                                 + "/dto/" + endpointDTOClass + ".java";
                         try {
-                            File dtoFile = new File(generatedFilesDirectory, dtoFilePath);
+                            File dtoFile = new File(moduleWARDirectory, dtoFilePath);
                             String dtoContent = generateEndpointDTO(normalizedCode, endpoint, endpointDTOClass);
                             FileUtils.write(dtoFile, dtoContent, StandardCharsets.UTF_8);
                             LOG.info("Successfully created endpoint DTO: {}", dtoFile.getPath());
@@ -209,7 +206,7 @@ public class ModuleWarGenerator extends Script {
                 LOG.info("Generating endpoint class: {}", endpointClassPath);
 
                 try {
-                    File endpointFile = new File(generatedFilesDirectory, endpointClassPath);
+                    File endpointFile = new File(moduleWARDirectory, endpointClassPath);
                     String endpointContent = generateEndpoint(normalizedCode, endpoint, endpointDTOClass);
                     FileUtils.write(endpointFile, endpointContent, StandardCharsets.UTF_8);
                     LOG.info("Successfully created endpoint class: {}", endpointFile.getPath());
@@ -234,7 +231,7 @@ public class ModuleWarGenerator extends Script {
                 gitClient.commitFiles(moduleWARRepo, filesToCommit, "DTO & Endpoint generation.");
             }
 
-            generateWAR(generatedFilesDirectory.getAbsolutePath());
+            generateWAR(moduleWARDirectory.getAbsolutePath());
 
         } else {
             LOG.warn("Module with code: {} does not exist.", moduleCode);
