@@ -243,13 +243,6 @@ public class ModuleWarGenerator extends Script {
         label("ModuleWarGenerator.execute() - DONE");
     }
 
-    private static String normalizePath(String path) {
-        path = (new File(path)).getAbsolutePath().replaceAll("/\\./", "/");
-        path = stripEnd(path, PATH_SEPARATORS);
-        path = stripEnd(path, ".");
-        return path;
-    }
-
     private GitRepository getGitRepository(String code, String origin) throws BusinessException {
         GitRepository gitRepository = gitRepositoryService.findByCode(code);
         if (gitRepository == null) {

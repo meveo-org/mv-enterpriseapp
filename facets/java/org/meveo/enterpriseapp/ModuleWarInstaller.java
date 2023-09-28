@@ -58,8 +58,15 @@ public class ModuleWarInstaller extends Script {
         return directory;
     }
 
+    private static String normalizePath(String path) {
+        path = (new File(path)).getAbsolutePath().replaceAll("/\\./", "/");
+        path = StringUtils.stripEnd(path, PATH_SEPARATORS);
+        path = StringUtils.stripEnd(path, ".");
+        return path;
+    }
+
     private String buildMavenPath(String moduleCode, String dataPath, String providerCode) {
-        return String.join(File.separator, dataPath, providerCode, "git", moduleCode, "facets", "mavenee");
+        return String.join(File.separator, dataPath, providerCode, "git", moduleCode + "-war");
     }
 
     private String buildModuleXML(String moduleCode) {
@@ -104,7 +111,8 @@ public class ModuleWarInstaller extends Script {
         return wildflyDirectory.getAbsolutePath();
     }
 
-    private void initializeTempFolder(String tempFolderPath) throws BusinessException {
+    private void initializeTempFolder(String wildflyPath) throws BusinessException {
+        String tempFolderPath = String.join(File.separator, wildflyPath, "standalone", "databackup");
         File tempFolder = new File(tempFolderPath);
         if (!tempFolder.exists() || !tempFolder.isDirectory()) {
             boolean tempFolderCreated = tempFolder.mkdirs();
@@ -118,16 +126,11 @@ public class ModuleWarInstaller extends Script {
 
     private void installModuleWAR(String moduleCode) throws BusinessException {
         String providerCode = normalizeDirectory(config.getProperty("provider.rootDir", "default"));
-        String meveoDataPath = config.getProperty("providers.rootDir", "./meveodata");
-        meveoDataPath = (new File(meveoDataPath)).getAbsolutePath().replaceAll("/\\./", "/");
-        meveoDataPath = StringUtils.stripEnd(meveoDataPath, PATH_SEPARATORS);
-        meveoDataPath = StringUtils.stripEnd(meveoDataPath, ".");
+        String meveoDataPath = normalizePath(config.getProperty("providers.rootDir", "./meveodata"));
         LOG.info("Meveo data path: {}", meveoDataPath);
 
         String wildflyPath = initializeWildflyDirectory();
-
-        String tempFolderPath = String.join(File.separator, wildflyPath, "standalone", "databackup");
-        initializeTempFolder(tempFolderPath);
+        initializeTempFolder(wildflyPath);
 
         String mavenPath = buildMavenPath(moduleCode, meveoDataPath, providerCode);
         prepareMeveoEARFile(moduleCode, wildflyPath, mavenPath);
