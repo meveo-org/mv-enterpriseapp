@@ -121,8 +121,6 @@ public class ModuleWarGenerator extends Script {
 
             File generatedFilesDirectory = GitHelper.getRepositoryDir(user, moduleWARRepo);
             Path generatedFilesPath = generatedFilesDirectory.toPath();
-            String pomFilePath = generatedFilesDirectory.getAbsolutePath() + "/facets/maven/pom.xml";
-            LOG.info("Added POM file: {}", pomFilePath);
 
             String basePath = config.getProperty("providers.rootDir", "./meveodata/");
             basePath = (new File(basePath)).getAbsolutePath().replaceAll("/\\./", "/");
@@ -197,6 +195,8 @@ public class ModuleWarGenerator extends Script {
                 }
 
                 String tagToKeep = "repositories";
+                File moduleDirectory = GitHelper.getRepositoryDir(user, moduleRepo);
+                String pomFilePath = moduleDirectory.getAbsolutePath() + "/facets/maven/pom.xml";
                 String repositoriesTagContent = copyXmlTagContent(pomFilePath, tagToKeep);
 
                 List<File> templateFiles = templateFileCopy(moduleCode, templatePath,
