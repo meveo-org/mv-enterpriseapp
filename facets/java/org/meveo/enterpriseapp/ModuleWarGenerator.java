@@ -384,7 +384,7 @@ public class ModuleWarGenerator extends Script {
      */
     String generateRESTConfigurationClass(String moduleCode) {
         CompilationUnit compilationUnit = new CompilationUnit();
-        compilationUnit.setPackageDeclaration("org.meveo." + moduleCode + ".rest");
+        compilationUnit.setPackageDeclaration("org.meveo." + toCamelCase(moduleCode) + ".rest");
         compilationUnit.getImports().add(new ImportDeclaration(new Name("javax.ws.rs.ApplicationPath"), false, false));
         compilationUnit.getImports().add(new ImportDeclaration(new Name("javax.ws.rs.core.Application"), false, false));
 
