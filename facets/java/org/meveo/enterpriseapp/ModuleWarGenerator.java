@@ -132,6 +132,34 @@ public class ModuleWarGenerator extends Script {
                 }
             }
 
+            List<File> filesToCommit = new ArrayList<>();
+            Path moduleSourceDirectory = Paths.get(moduleDirectory.getAbsolutePath() + "/facets/java");
+            Path moduleWARSourceDirectory = Paths.get(generatedFilesDirectory.getAbsolutePath() + "/src/main/java");
+            try (Stream<Path> sourceStream = Files.walk(moduleSourceDirectory)) {
+                List<Path> sources = sourceStream.collect(Collectors.toList());
+                List<Path> destinations = sources.stream()
+                                                 .map(moduleSourceDirectory::relativize)
+                                                 .map(moduleWARSourceDirectory::resolve)
+                                                 .collect(Collectors.toList());
+                for (int index = 0; index < sources.size(); index++) {
+                    Path sourcePath = sources.get(index);
+                    Path destinationPath = destinations.get(index);
+                    File destinationFile = destinationPath.toFile();
+                    if (destinationFile.exists()) {
+                        boolean hasFiles = FileUtils.sizeOfDirectory(destinationFile) > 0;
+                        if (hasFiles) {
+                            LOG.info("Directory: {} contains files, moving on to next file.", destinationFile);
+                            continue;
+                        }
+                    }
+                    Files.copy(sourcePath, destinationPath, REPLACE_EXISTING, COPY_ATTRIBUTES);
+                    LOG.info("Successfully copied: {} to: {}", sourcePath, destinationPath);
+                    filesToCommit.add(destinationFile);
+                }
+            } catch (IOException e) {
+                throw new BusinessException("Failed to copy files from module repo to module war repo.", e);
+            }
+
             String basePath = config.getProperty("providers.rootDir", "./meveodata/");
             basePath = (new File(basePath)).getAbsolutePath().replaceAll("/\\./", "/");
             basePath = stripEnd(basePath, PATH_SEPARATORS);
@@ -144,8 +172,6 @@ public class ModuleWarGenerator extends Script {
             String restConfigurationPath = "src/main/java/org/meveo/" + normalizedCode
                     + "/rest/" + normalizedCode + "RestConfig" + ".java";
             LOG.info("Rest configuration file: {}", restConfigurationPath);
-
-            List<File> filesToCommit = new ArrayList<>();
             try {
 
                 File restConfigfile = new File(generatedFilesDirectory, restConfigurationPath);
@@ -213,33 +239,6 @@ public class ModuleWarGenerator extends Script {
                 LOG.info("Successfully copied the following files from the template: {}",
                         templateFiles.stream().map(File::getPath).collect(Collectors.toList()));
                 filesToCommit.addAll(templateFiles);
-            }
-
-            Path moduleSourceDirectory = Paths.get(moduleDirectory.getAbsolutePath() + "/facets/java");
-            Path moduleWARSourceDirectory = Paths.get(generatedFilesDirectory.getAbsolutePath() + "/src/main/java");
-            try (Stream<Path> sourceStream = Files.walk(moduleSourceDirectory)) {
-                List<Path> sources = sourceStream.collect(Collectors.toList());
-                List<Path> destinations = sources.stream()
-                                                 .map(moduleSourceDirectory::relativize)
-                                                 .map(moduleWARSourceDirectory::resolve)
-                                                 .collect(Collectors.toList());
-                for (int index = 0; index < sources.size(); index++) {
-                    Path sourcePath = sources.get(index);
-                    Path destinationPath = destinations.get(index);
-                    File destinationFile = destinationPath.toFile();
-                    if (destinationFile.exists()) {
-                        boolean hasFiles = FileUtils.sizeOfDirectory(destinationFile) > 0;
-                        if (hasFiles) {
-                            LOG.info("Directory: {} contains files, moving on to next file.", destinationFile);
-                            continue;
-                        }
-                    }
-                    Files.copy(sourcePath, destinationPath, REPLACE_EXISTING, COPY_ATTRIBUTES);
-                    LOG.info("Successfully copied: {} to: {}", sourcePath, destinationPath);
-                    filesToCommit.add(destinationFile);
-                }
-            } catch (IOException e) {
-                throw new BusinessException("Failed to copy files from module repo to module war repo.", e);
             }
 
             if (!filesToCommit.isEmpty()) {
